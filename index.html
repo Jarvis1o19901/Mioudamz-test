@@ -43,9 +43,13 @@
   .moment{ margin-bottom:14px; border-left:3px solid #e6e1f7; padding-left:12px; }
   .moment:last-child{ margin-bottom:0; }
   .moment .mt{ font-size:13px; font-weight:600; color:var(--acc); margin-bottom:8px; }
-  .med{ display:grid; grid-template-columns:minmax(96px,1.1fr) minmax(0,1fr) minmax(84px,auto); gap:6px; align-items:center; margin-bottom:8px; }
-  .med .nm{ font-size:13.5px; color:#444; white-space:nowrap; }
-  .med input[type=time]{ min-width:76px; }
+  
+  /* CORRECTION MEDICATION : Largeurs fixes pour éviter l'écrasement */
+  .med{ display:grid; grid-template-columns:104px 78px 108px; gap:6px; align-items:center; margin-bottom:8px; justify-content:start; }
+  .med .nm{ font-size:13px; color:#444; overflow:hidden; text-overflow:ellipsis; }
+  .med input[type=number]{ width:78px; padding:9px 6px; text-align:center; font-size:14px; }
+  .med input[type=time]{ width:108px; padding:9px 4px; font-size:13px; }
+  
   .tog{ display:flex; border:1px solid #ddd; border-radius:8px; overflow:hidden; width:96px; }
   .tog button{ flex:1; padding:9px 0; font-size:13.5px; background:#fafafa; color:#888; border:none; cursor:pointer; }
   .tog button.on{ background:var(--acc); color:#fff; }
@@ -113,6 +117,14 @@
   .bnav{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e5e5e5; display:flex; z-index:50; max-width:640px; margin:0 auto; }
   .bnav a{ flex:1; text-align:center; padding:10px 0 14px; font-size:11px; color:#999; text-decoration:none; cursor:pointer; }
   .bnav a.on{ color:var(--acc); font-weight:600; }
+
+  /* CORRECTION SUPPLEMENTS : Structure fixe uniforme */
+  .sup-row{ display:grid; grid-template-columns:1fr 92px 82px; gap:8px; align-items:center; margin-bottom:10px; }
+  .sup-row:last-child{ margin-bottom:0; }
+  .sup-name{ font-size:13.5px; color:#444; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sup-row input[type=number]{ width:82px; padding:9px 6px; text-align:center; font-size:14px; }
+  .sup-dose-empty{ text-align:center; color:#bbb; font-size:15px; }
+  .sup-row .tog{ width:92px; }
 </style>
 </head>
 <body>
@@ -188,24 +200,27 @@
       </div>
     </div>
 
+    <!-- CORRECTION SUPPLEMENTS HTML -->
     <div class="sec"><h3>Suppléments</h3>
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) 96px 84px;gap:8px;align-items:center;margin-bottom:10px;">
-        <div style="font-size:13.5px;color:#444;">Glycinate ferreux</div>
+      <div class="sup-row">
+        <div class="sup-name">Glycinate ferreux</div>
         <div class="tog supTog" data-k="fer"><button data-v="1" class="on">Oui</button><button data-v="0">Non</button></div>
-        <div><input type="number" class="supDose" data-k="fer" step="2" min="0" value="18"></div>
+        <input type="number" class="supDose" data-k="fer" step="2" min="0" value="18">
       </div>
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) 96px 84px;gap:8px;align-items:center;margin-bottom:10px;">
-        <div style="font-size:13.5px;color:#444;">Vitamine D</div>
+      <div class="sup-row">
+        <div class="sup-name">Vitamine D</div>
         <div class="tog supTog" data-k="vitD"><button data-v="1" class="on">Oui</button><button data-v="0">Non</button></div>
-        <div><input type="number" class="supDose" data-k="vitD" step="100" min="0" value="800"></div>
+        <input type="number" class="supDose" data-k="vitD" step="100" min="0" value="800">
       </div>
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) 96px;gap:8px;align-items:center;margin-bottom:10px;">
-        <div style="font-size:13.5px;color:#444;">Multivitamines</div>
+      <div class="sup-row">
+        <div class="sup-name">Multivitamines</div>
         <div class="tog supTog" data-k="multi"><button data-v="1" class="on">Oui</button><button data-v="0">Non</button></div>
+        <div class="sup-dose-empty">—</div>
       </div>
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) 96px;gap:8px;align-items:center;">
-        <div style="font-size:13.5px;color:#444;">Oméga-3</div>
+      <div class="sup-row">
+        <div class="sup-name">Oméga-3</div>
         <div class="tog supTog" data-k="omega"><button data-v="1" class="on">Oui</button><button data-v="0">Non</button></div>
+        <div class="sup-dose-empty">—</div>
       </div>
     </div>
 
@@ -299,7 +314,6 @@
       </div>
     </div>
 
-    <!-- NOUVELLE SECTION INC 4 -->
     <div class="chart-card">
       <h3>Sommeil · impact de la Trazodone</h3>
       <div class="rng" id="tzRng">

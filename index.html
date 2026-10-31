@@ -458,6 +458,8 @@ let uid = null;
 let currentDayKey = null;
 let unsubscribe = null;
 let busy = false;
+let saveQueued = false;
+let saveTimer = null;
 let lastServerJson = null;
 
 // ============ utilitaires ============
@@ -570,18 +572,28 @@ function collectSelles(){
     h:r.querySelector('input[type=time]').value, c:r.querySelector('select').value }));
 }
 
-// ============ sauvegarde ============
+// ============ sauvegarde (corrigée : anti-rebond + file d'attente) ============
 async function save(data){
-  if(busy||!uid||!currentDayKey) return;
+  if(!uid||!currentDayKey) return;
+  if(busy){ saveQueued=true; return; }
   busy=true; $('dotsav').classList.add('busy');
   try{
     const payload={...(data||collect()), updatedAt:serverTimestamp()};
     await setDoc(doc(db,'daily_entries',currentDayKey), payload, {merge:true});
-    lastServerJson=JSON.stringify(data||collect());
+    lastServerJson=JSON.stringify(normalize(payload));
   }catch(e){ console.error(e); alert("Échec de la sauvegarde. Vérifiez votre connexion."); }
-  finally{ setTimeout(()=>{ busy=false; $('dotsav').classList.remove('busy'); },500); }
+  finally{
+    setTimeout(()=>{
+      busy=false;
+      $('dotsav').classList.remove('busy');
+      if(saveQueued){ saveQueued=false; save(); }
+    },500);
+  }
 }
-function queueSave(){ save(); }
+function queueSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>save(),600);
+}
 
 // ============ peuplement ============
 function populate(d){
@@ -639,7 +651,7 @@ function addSelleRow(h,c){
   const div=document.createElement('div');
   div.className='inrow selleRow';
   div.style.marginTop='10px';
-  div.innerHTML='<div class="fld" style="margin:0"><label>Heure</label><input type="time"></div>'+
+  div.innerHTML='<div class="fld" style="margin:0"><label>Heure</label><input type="time" value="'+(h||'')+'"></div>'+
     '<div class="fld" style="margin:0"><label>Consistance</label><select>'+['Dur','Correct','Mou','Diarrhée']
     .map(o=>'<option '+(o===c?'selected':'')+'>'+o+'</option>').join('')+'</select></div>';
   div.querySelectorAll('input,select').forEach(el=>el.addEventListener('change',queueSave));

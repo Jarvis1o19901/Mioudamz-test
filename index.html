@@ -44,12 +44,16 @@
   .moment:last-child{ margin-bottom:0; }
   .moment .mt{ font-size:13px; font-weight:600; color:var(--acc); margin-bottom:8px; }
 
-  /* MEDICATION : structure empilée — nom sur une ligne, contrôles en dessous */
+  /* MEDICATION : structure empilée */
   .med{ margin-bottom:12px; }
   .med:last-child{ margin-bottom:0; }
   .med .nm{ font-size:14px; color:#333; font-weight:600; margin-bottom:6px; }
   .med .ctl{ display:grid; grid-template-columns:1fr 130px; gap:8px; align-items:center; }
   .med .ctl .dash{ margin:0; }
+  .med .ctl-lax{ display:grid; grid-template-columns:110px 1fr; gap:8px; align-items:center; }
+  .med .ctl-lax .tog{ width:110px; }
+  .med .ctl-lax .tog button{ font-size:13.5px; padding:9px 0; }
+  .med .ctl-lax input[type=number]{ padding:9px 6px; text-align:center; font-size:14px; }
 
   /* SUPPLEMENTS : structure empilée */
   .sup-row{ margin-bottom:12px; }
@@ -189,13 +193,11 @@
         </div>
         <div class="med">
           <div class="nm">Lax-A-Day</div>
-          <div class="ctl">
-            <div id="laxDoseWrap" style="display:flex;gap:8px;align-items:center;">
-              <div class="tog" id="laxTog"><button data-v="1" class="on">Oui</button><button data-v="0">Non</button></div>
-              <input type="number" id="laxDose" step="1.25" min="0" max="15" value="5" style="max-width:90px;">
-              <div class="dash hidden" id="laxDash" style="flex:1;">—</div>
-            </div>
+          <div class="ctl-lax">
+            <div class="tog" id="laxTog"><button data-v="1" class="on">Oui</button><button data-v="0">Non</button></div>
+            <input type="number" id="laxDose" step="1.25" min="0" max="15" value="5">
           </div>
+          <div class="dash hidden" id="laxDash" style="margin-top:8px;">—</div>
         </div>
       </div>
       <div class="moment"><div class="mt">🕛 Midi</div>

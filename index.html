@@ -299,7 +299,40 @@
       </div>
     </div>
 
-    <div class="placeholder">Les autres sections (Trazodone, Mélatonine, Transit, Compliance) seront ajoutées aux incréments suivants.</div>
+    <!-- NOUVELLE SECTION INC 4 -->
+    <div class="chart-card">
+      <h3>Sommeil · impact de la Trazodone</h3>
+      <div class="rng" id="tzRng">
+        <button data-k="1sem" class="on">1 sem</button>
+        <button data-k="2sem">2 sem</button>
+        <button data-k="1mois">1 mois</button>
+        <button data-k="2mois">2 mois</button>
+        <button data-k="3mois">3 mois</button>
+        <button data-k="custom">Plage personnalisée…</button>
+      </div>
+      <div class="customrange hidden" id="tzCustom">
+        <span>Du</span><input type="date" id="tzFrom"><span>au</span><input type="date" id="tzTo">
+        <span id="tzDaysInfo" style="color:#999"></span>
+      </div>
+      <div class="insufficient hidden" id="tzInsuff"><span class="ico">📊</span><b>Données insuffisantes</b><br>Cette période exige plus de journées enregistrées que disponible.<br><span style="font-size:12px" id="tzInsuffDetail"></span></div>
+      <div id="tzBody">
+        <div class="stats">
+          <div class="stat">
+            <div class="lab">Dose moyenne de Trazodone</div>
+            <div class="num" id="tzDose">—</div>
+            <div class="un">mg</div>
+          </div>
+          <div class="stat">
+            <div class="lab">Total moyen de sommeil</div>
+            <div class="num" id="tzSleep">—</div>
+            <div class="un" id="tzSleepSub">heures par nuit</div>
+          </div>
+        </div>
+        <div class="agg-note" id="tzNote"></div>
+      </div>
+    </div>
+
+    <div class="placeholder">Les autres sections (Mélatonine, Transit, Compliance) seront ajoutées aux incréments suivants.</div>
   </div>
 
   <nav class="bnav">
@@ -331,7 +364,6 @@
     <div class="bignote" id="bigNote"></div>
   </div>
 </div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -369,6 +401,19 @@ function fmtHM(mins){ mins=Math.max(0,Math.round(mins)); return String(Math.floo
 function daysBetween(a,b){ return Math.round((parseKey(b)-parseKey(a))/86400000); }
 function addDays(k,n){ const d=parseKey(k); d.setDate(d.getDate()+n); return isoKey(d); }
 function fmtFr(v){ const s=v.toFixed(2).replace('.',','); return s.replace(/,?0+$/,'') || '0'; }
+function fmtH1(v){ const h=Math.floor(v); let m=Math.round((v-h)*60); if(m===60){ return (h+1)+' h 00'; } return h+' h '+String(m).padStart(2,'0'); }
+function sleepMinutesFromData(d){
+  if(!d) return null;
+  const bed=toMin(d.bedTime), wake=toMin(d.wakeTime);
+  if(bed===null||wake===null) return null;
+  let total=wake-bed; if(total<0) total+=1440;
+  if(d.nightWake){
+    const s=toMin(d.nightWakeStart), e=toMin(d.nightWakeEnd);
+    if(s!==null&&e!==null){ let dd=e-s; if(dd<0)dd+=1440; total-=dd; }
+  }
+  if(total<0) return null;
+  return total;
+}
 
 // ============ auth ============
 $('loginBtn').addEventListener('click', async () => {
@@ -662,7 +707,7 @@ document.querySelectorAll('.bnav a').forEach(a=>a.addEventListener('click',e=>{
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   $('p-'+a.dataset.p).classList.add('on');
   window.scrollTo(0,0);
-  if(a.dataset.p==='trend'){ renderCatWellChart(); renderLoraStats(); }
+  if(a.dataset.p==='trend'){ renderCatWellChart(); renderLoraStats(); renderTrazStats(); }
 }));
 
 /* =========================================================
@@ -736,13 +781,15 @@ function drawLineChart(svg, W, H, pts, xLabels, big){
     html+='<text x="'+(mL-(big?14:8))+'" y="'+(y+(big?8:4))+'" font-size="'+fsY+'" fill="'+axis+'" text-anchor="end" '+(big?'font-weight="600"':'')+'>'+v+'</text>';
   }
   const n=pts.length;
-  const x=i=> n===1 ? mL+iw/2 : mL+(iw*i)/(n-1);
-  const y=v=> mT+ih-(v/5)*ih;
-  xLabels.forEach(t=>{
+  const x=function(i){ return n===1 ? mL+iw/2 : mL+(iw*i)/(n-1); };
+  const y=function(v){ return mT+ih-(v/5)*ih; };
+  xLabels.forEach(function(t){
     html+='<text x="'+x(t.i)+'" y="'+(H-mB+(big?40:16))+'" font-size="'+fsX+'" fill="'+axis+'" text-anchor="middle" '+(big?'font-weight="600"':'')+'>'+t.txt+'</text>';
   });
-  [['cat','#6d4aff'],['well','#2a9d5a']].forEach(function(pair){
-    const f=pair[0], col=pair[1];
+  const fields=['cat','well'];
+  const cols=['#6d4aff','#2a9d5a'];
+  fields.forEach(function(fi, idx){
+    const f=fields[idx], col=cols[idx];
     let seg=''; let open=false;
     pts.forEach(function(p,i){
       const v=p[f];
@@ -752,7 +799,6 @@ function drawLineChart(svg, W, H, pts, xLabels, big){
         }
         seg=''; open=false;
       } else {
-        const pt=x(i)+','+y(v);
         if(!open){
           if(seg){
             html+='<polyline points="'+seg+'" fill="none" stroke="'+col+'" stroke-width="'+lw+'" stroke-linecap="round" stroke-linejoin="round"/>';
@@ -760,7 +806,7 @@ function drawLineChart(svg, W, H, pts, xLabels, big){
           seg='';
         }
         if(seg) seg+=' ';
-        seg+=pt; open=true;
+        seg+=x(i)+','+y(v); open=true;
       }
     });
     if(open && seg){
@@ -938,6 +984,87 @@ $('loRng').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>
 }));
 $('loFrom').addEventListener('change',()=>{ loCustomFrom=$('loFrom').value||null; renderLoraStats(); });
 $('loTo').addEventListener('change',()=>{ loCustomTo=$('loTo').value||null; renderLoraStats(); });
+/* =========================================================
+   Section 3 : Sommeil · impact de la Trazodone
+   ========================================================= */
+const TZ_PERIODS = { '1sem':7, '2sem':14, '1mois':30, '2mois':60, '3mois':90 };
+let tzPeriod = '1sem';
+let tzCustomFrom = null, tzCustomTo = null;
+
+async function renderTrazStats(){
+  const allDays = await fetchAllDays();
+  const totalDays = Object.keys(allDays).length;
+  const today=todayKey();
+  let from, to, required;
+
+  if(tzPeriod==='custom'){
+    if(!tzCustomFrom || !tzCustomTo || tzCustomFrom>tzCustomTo){
+      $('tzInsuff').classList.add('hidden');
+      $('tzBody').classList.add('hidden');
+      $('tzDose').textContent='—'; $('tzSleep').textContent='—';
+      $('tzSleepSub').textContent='sélectionnez deux dates valides';
+      return;
+    }
+    from=tzCustomFrom; to=tzCustomTo;
+    if(from<START_DATE) from=START_DATE;
+    if(to>today) to=today;
+    required=null;
+    $('tzInsuff').classList.add('hidden');
+    $('tzBody').classList.remove('hidden');
+    $('tzDaysInfo').textContent='du '+from+' au '+to;
+  } else {
+    required = TZ_PERIODS[tzPeriod];
+    if(totalDays < required){
+      $('tzInsuff').classList.remove('hidden');
+      $('tzBody').classList.add('hidden');
+      $('tzInsuffDetail').textContent='Données disponibles : '+totalDays+' jour'+(totalDays>1?'s':'')+' · requis : '+required+' jours';
+      return;
+    }
+    $('tzInsuff').classList.add('hidden');
+    $('tzBody').classList.remove('hidden');
+    from=addDays(today,-(required-1));
+    to=today;
+    $('tzDaysInfo').textContent='';
+  }
+
+  let sumDose=0, nDose=0, sumSleepMin=0, nSleep=0;
+  let k=from;
+  while(k<=to){
+    const d=allDays[k];
+    if(d){
+      if(typeof d.traz==='number'){ sumDose+=d.traz; nDose++; }
+      const mins=sleepMinutesFromData(d);
+      if(mins!==null){ sumSleepMin+=mins; nSleep++; }
+    }
+    k=addDays(k,1);
+  }
+  $('tzDose').textContent = nDose ? fmtFr(sumDose/nDose) : '—';
+  if(nSleep){
+    const avg=sumSleepMin/nSleep;
+    $('tzSleep').textContent = fmtH1(avg/60);
+    $('tzSleepSub').textContent = 'moyenne sur '+nSleep+' nuit'+(nSleep>1?'s':'')+' renseignée'+(nSleep>1?'s':'');
+  } else {
+    $('tzSleep').textContent='—';
+    $('tzSleepSub').textContent='aucune nuit renseignée';
+  }
+  $('tzNote').textContent='Le sommeil de chaque nuit est calculé à partir du coucher et de l\'éveil de cette journée, moins les éveils nocturnes.';
+}
+
+$('tzRng').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  $('tzRng').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  tzPeriod=b.dataset.k;
+  $('tzCustom').classList.toggle('hidden', tzPeriod!=='custom');
+  if(tzPeriod!=='custom'){ tzCustomFrom=tzCustomTo=null; }
+  else{
+    const t=todayKey();
+    $('tzFrom').value=addDays(t,-29); $('tzTo').value=t;
+    tzCustomFrom=addDays(t,-29); tzCustomTo=t;
+  }
+  renderTrazStats();
+}));
+$('tzFrom').addEventListener('change',()=>{ tzCustomFrom=$('tzFrom').value||null; renderTrazStats(); });
+$('tzTo').addEventListener('change',()=>{ tzCustomTo=$('tzTo').value||null; renderTrazStats(); });
 </script>
 </body>
 </html>

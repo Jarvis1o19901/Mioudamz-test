@@ -148,6 +148,16 @@
   .consist-bar{ height:8px; background:#e0e0e0; border-radius:4px; overflow:hidden; margin-top:6px; }
   .consist-fill{ height:100%; background:linear-gradient(90deg,#a898ec,#6d4aff); width:0%; transition:width .3s; }
   .consist-label{ font-size:10px; color:#aaa; text-align:center; margin-top:2px; }
+
+  /* Section Compliance (incrément 7) */
+  .comp-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .comp-table th{ background:#f7f6fb; color:#8a86a8; font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:.05em; padding:9px 6px; text-align:center; border-bottom:1px solid #ececf2; }
+  .comp-table th:first-child{ text-align:left; padding-left:12px; }
+  .comp-table td{ padding:11px 6px; text-align:center; border-bottom:1px solid #f2f2f6; color:#555; }
+  .comp-table td:first-child{ text-align:left; padding-left:12px; color:#333; font-weight:600; }
+  .comp-table tr:last-child td{ border-bottom:none; }
+  .comp-pct{ font-weight:600; color:var(--acc); font-size:14px; }
+  .comp-pct.off{ color:#bbb; font-weight:400; }
 </style>
 </head>
 <body>
@@ -475,7 +485,54 @@
       </div>
     </div>
 
-    <div class="placeholder">La section Compliance aux suppléments sera ajoutée à l'incrément suivant.</div>
+    <div class="chart-card">
+      <h3>Compliance aux suppléments</h3>
+      <div class="insufficient hidden" id="cpInsuff"><span class="ico">📊</span><b>Données insuffisantes</b><br>Cette période exige plus de journées enregistrées que disponible.<br><span style="font-size:12px" id="cpInsuffDetail"></span></div>
+      <div id="cpBody">
+        <table class="comp-table">
+          <thead>
+            <tr>
+              <th>Supplément</th>
+              <th>1 mois</th>
+              <th>3 mois</th>
+              <th>6 mois</th>
+              <th>1 an</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Glycinate ferreux</td>
+              <td><span class="comp-pct" id="cpFer30">—</span></td>
+              <td><span class="comp-pct" id="cpFer90">—</span></td>
+              <td><span class="comp-pct" id="cpFer180">—</span></td>
+              <td><span class="comp-pct" id="cpFer365">—</span></td>
+            </tr>
+            <tr>
+              <td>Vitamine D</td>
+              <td><span class="comp-pct" id="cpVitD30">—</span></td>
+              <td><span class="comp-pct" id="cpVitD90">—</span></td>
+              <td><span class="comp-pct" id="cpVitD180">—</span></td>
+              <td><span class="comp-pct" id="cpVitD365">—</span></td>
+            </tr>
+            <tr>
+              <td>Multivitamines</td>
+              <td><span class="comp-pct" id="cpMulti30">—</span></td>
+              <td><span class="comp-pct" id="cpMulti90">—</span></td>
+              <td><span class="comp-pct" id="cpMulti180">—</span></td>
+              <td><span class="comp-pct" id="cpMulti365">—</span></td>
+            </tr>
+            <tr>
+              <td>Oméga-3</td>
+              <td><span class="comp-pct" id="cpOmega30">—</span></td>
+              <td><span class="comp-pct" id="cpOmega90">—</span></td>
+              <td><span class="comp-pct" id="cpOmega180">—</span></td>
+              <td><span class="comp-pct" id="cpOmega365">—</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="agg-note" id="cpNote"></div>
+      </div>
+    </div>
   </div>
 
   <nav class="bnav">
@@ -1283,8 +1340,6 @@ async function renderMelStats(){
 
 /* =========================================================
    Section 5 : Transit intestinal · portrait
-   Consistance moyenne (jours avec selle), dose moyenne
-   Lax-A-Day (tous les jours), jours avec selle.
    ========================================================= */
 const TX_PERIODS = { '1sem':7, '2sem':14, '1mois':30 };
 const CONSIST_SCALE = { 'Dur':1, 'Correct':2, 'Mou':3, 'Diarrhée':4 };
@@ -1307,20 +1362,18 @@ async function renderTransitStats(){
   $('txBody').classList.remove('hidden');
 
   const from=addDays(today,-(required-1));
-  let nDays=0;          // journées enregistrées dans la période
-  let nSelleDays=0;      // journées avec au moins une selle
-  let consistSum=0, consistCount=0;  // somme et décompte des consistances
-  let laxSum=0;          // dose Lax-A-Day cumulée sur TOUS les jours
+  let nDays=0;
+  let nSelleDays=0;
+  let consistSum=0, consistCount=0;
+  let laxSum=0;
   let k=from;
   while(k<=today){
     const d=allDays[k];
     if(d && typeof d.cat==='number'){
       nDays++;
-      // Lax-A-Day : moyenne sur toute la période
       if(d.laxOn===true && typeof d.laxDose==='number'){
         laxSum+=d.laxDose;
       }
-      // Selles : décompte des jours et consistance
       if(d.selleOn===true || (Array.isArray(d.selles) && d.selles.length>0)){
         nSelleDays++;
         const selles=Array.isArray(d.selles)?d.selles:[];
@@ -1335,19 +1388,14 @@ async function renderTransitStats(){
     k=addDays(k,1);
   }
 
-  // Jours avec selle
   $('txDays').textContent=nSelleDays;
   $('txDaysSub').textContent='jours sur '+nDays+' enregistré'+(nDays>1?'s':'');
-
-  // Dose moyenne Lax-A-Day (tous les jours, dose 0 si non donné)
   $('txLax').textContent = nDays ? fmtFr(laxSum/nDays) : '—';
 
-  // Consistance moyenne
   if(consistCount>0){
     const avg=consistSum/consistCount;
     $('txConsist').textContent=fmtFr(avg);
     $('txConsistSub').textContent='sur '+nSelleDays+' jour'+(nSelleDays>1?'s':'')+' avec selle';
-    // Barre visuelle : 1=Dur (gauche) à 4=Diarrhée (droite)
     const pctFill=((avg-1)/3)*100;
     $('txConsistBar').style.width=Math.min(100,Math.max(0,pctFill))+'%';
     $('txConsistLabel').textContent='Dur ← '+CONSIST_NAMES[Math.round(avg)]+' → Diarrhée';
@@ -1375,6 +1423,90 @@ $('txRng').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>
 // Rafraîchissement des sections 4 et 5 à chaque ouverture de l'onglet Tendances
 document.querySelectorAll('.bnav a').forEach(a=>{
   if(a.dataset.p==='trend'){ a.addEventListener('click',()=>{ renderMelStats(); renderTransitStats(); }); }
+});
+
+/* =========================================================
+   Section 6 : Compliance aux suppléments
+   - Glycinate ferreux et Vitamine D : jour "pris" si
+     interrupteur Oui ET dose > 0.
+   - Multivitamines et Oméga-3 : jour "pris" si Oui.
+   - Périodes : 1 mois, 3 mois, 6 mois, 1 an. Sans plage
+     personnalisée. Seuils identiques à la section mélatonine.
+   ========================================================= */
+const CP_PERIODS = [
+  { k:'30',  days:30,  label:'1 mois' },
+  { k:'90',  days:90,  label:'3 mois' },
+  { k:'180', days:180, label:'6 mois' },
+  { k:'365', days:365, label:'1 an' }
+];
+const CP_SUPPS = [
+  { k:'Fer',   field:'fer',   needDose:true,  label:'Glycinate ferreux' },
+  { k:'VitD',  field:'vitD',  needDose:true,  label:'Vitamine D' },
+  { k:'Multi', field:'multi', needDose:false, label:'Multivitamines' },
+  { k:'Omega', field:'omega', needDose:false, label:'Oméga-3' }
+];
+
+async function renderCompStats(){
+  const allDays = await fetchAllDays();
+  const totalDays = Object.keys(allDays).length;
+  const today=todayKey();
+
+  const anySufficient = CP_PERIODS.some(p => totalDays >= p.days);
+  if(!anySufficient){
+    $('cpInsuff').classList.remove('hidden');
+    $('cpBody').classList.add('hidden');
+    $('cpInsuffDetail').textContent='Données disponibles : '+totalDays+' jour'+(totalDays>1?'s':'')+' · minimum requis : '+CP_PERIODS[0].days+' jours (1 mois)';
+    return;
+  }
+  $('cpInsuff').classList.add('hidden');
+  $('cpBody').classList.remove('hidden');
+
+  CP_PERIODS.forEach(p=>{
+    // Pré-calculer la fenêtre et les compteurs par supplément
+    const from=addDays(today,-(p.days-1));
+    const counts={};
+    CP_SUPPS.forEach(s=>{ counts[s.k]={taken:0, total:0}; });
+    let k=from;
+    while(k<=today){
+      const d=allDays[k];
+      if(d && typeof d.cat==='number'){
+        CP_SUPPS.forEach(s=>{
+          counts[s.k].total++;
+          const on=d[s.field]===true;
+          if(s.needDose){
+            const doseField = s.field==='fer' ? 'ferDose' : 'vitDDose';
+            const dose = typeof d[doseField]==='number' ? d[doseField] : 0;
+            if(on && dose>0){ counts[s.k].taken++; }
+          } else {
+            if(on){ counts[s.k].taken++; }
+          }
+        });
+      }
+      k=addDays(k,1);
+    }
+    // Affichage
+    CP_SUPPS.forEach(s=>{
+      const el=$('cp'+s.k+p.k);
+      if(!el) return;
+      const c=counts[s.k];
+      if(c.total===0){
+        el.textContent='—';
+        el.classList.add('off');
+        return;
+      }
+      if(totalDays < p.days){ el.textContent='—'; el.classList.add('off'); return; }
+      const pct=Math.round((c.taken/c.total)*100);
+      el.textContent=pct+' %';
+      el.classList.remove('off');
+    });
+  });
+
+  $('cpNote').textContent='Pourcentage de journées enregistrées où chaque supplément a été pris. Glycinate ferreux et Vitamine D comptent uniquement les jours où une dose supérieure à 0 a été administrée.';
+}
+
+// Rafraîchissement de la compliance à chaque ouverture de l'onglet Tendances
+document.querySelectorAll('.bnav a').forEach(a=>{
+  if(a.dataset.p==='trend'){ a.addEventListener('click',()=>renderCompStats()); }
 });
 </script>
 </body>

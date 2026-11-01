@@ -49,7 +49,6 @@
   .med:last-child{ margin-bottom:0; }
   .med .nm{ font-size:14px; color:#333; font-weight:600; margin-bottom:6px; }
   .med .ctl{ display:grid; grid-template-columns:1fr 130px; gap:8px; align-items:center; }
-  .med .ctl .dash{ margin:0; }
   .med .ctl-lax{ display:grid; grid-template-columns:110px 1fr; gap:8px; align-items:center; }
   .med .ctl-lax .tog{ width:110px; }
   .med .ctl-lax .tog button{ font-size:13.5px; padding:9px 0; }
@@ -132,6 +131,13 @@
   .bnav{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e5e5e5; display:flex; z-index:50; max-width:640px; margin:0 auto; }
   .bnav a{ flex:1; text-align:center; padding:10px 0 14px; font-size:11px; color:#999; text-decoration:none; cursor:pointer; }
   .bnav a.on{ color:var(--acc); font-weight:600; }
+
+  /* Section mélatonine (incrément 5) */
+  .pct-list{ display:grid; gap:10px; }
+  .pct-row{ display:grid; grid-template-columns:1fr 74px; gap:10px; align-items:center; background:#f7f6fb; border-radius:10px; padding:12px 14px; }
+  .pct-row .plab{ font-size:13.5px; color:#555; }
+  .pct-row .pnum{ font-size:22px; font-weight:600; color:var(--acc); text-align:right; }
+  .pct-row .psub{ font-size:11px; color:#999; }
 </style>
 </head>
 <body>
@@ -401,7 +407,33 @@
       </div>
     </div>
 
-    <div class="placeholder">Les autres sections (Mélatonine, Transit, Compliance) seront ajoutées aux incréments suivants.</div>
+    <div class="chart-card">
+      <h3>Sommeil · mélatonine supplémentaire</h3>
+      <div class="insufficient hidden" id="emInsuff"><span class="ico">📊</span><b>Données insuffisantes</b><br>Cette période exige plus de journées enregistrées que disponible.<br><span style="font-size:12px" id="emInsuffDetail"></span></div>
+      <div id="emBody">
+        <div class="pct-list">
+          <div class="pct-row">
+            <div><div class="plab">1 mois</div><div class="psub" id="emSub30">—</div></div>
+            <div class="pnum" id="emP30">—</div>
+          </div>
+          <div class="pct-row">
+            <div><div class="plab">3 mois</div><div class="psub" id="emSub90">—</div></div>
+            <div class="pnum" id="emP90">—</div>
+          </div>
+          <div class="pct-row">
+            <div><div class="plab">6 mois</div><div class="psub" id="emSub180">—</div></div>
+            <div class="pnum" id="emP180">—</div>
+          </div>
+          <div class="pct-row">
+            <div><div class="plab">1 an</div><div class="psub" id="emSub365">—</div></div>
+            <div class="pnum" id="emP365">—</div>
+          </div>
+        </div>
+        <div class="agg-note" id="emNote"></div>
+      </div>
+    </div>
+
+    <div class="placeholder">Les autres sections (Transit, Compliance) seront ajoutées aux incréments suivants.</div>
   </div>
 
   <nav class="bnav">
@@ -572,7 +604,7 @@ function collectSelles(){
     h:r.querySelector('input[type=time]').value, c:r.querySelector('select').value }));
 }
 
-// ============ sauvegarde (corrigée : anti-rebond + file d'attente) ============
+// ============ sauvegarde (anti-rebond + file d'attente) ============
 async function save(data){
   if(!uid||!currentDayKey) return;
   if(busy){ saveQueued=true; return; }
@@ -1065,6 +1097,7 @@ $('loRng').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>
 }));
 $('loFrom').addEventListener('change',()=>{ loCustomFrom=$('loFrom').value||null; renderLoraStats(); });
 $('loTo').addEventListener('change',()=>{ loCustomTo=$('loTo').value||null; renderLoraStats(); });
+
 /* =========================================================
    Section 3 : Sommeil · impact de la Trazodone
    ========================================================= */
@@ -1146,6 +1179,76 @@ $('tzRng').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>
 }));
 $('tzFrom').addEventListener('change',()=>{ tzCustomFrom=$('tzFrom').value||null; renderTrazStats(); });
 $('tzTo').addEventListener('change',()=>{ tzCustomTo=$('tzTo').value||null; renderTrazStats(); });
-</script>
-</body>
-</html>
+
+/* =========================================================
+   Section 4 : Sommeil · mélatonine supplémentaire
+   Pourcentage de jours où la mélatonine supplémentaire a été
+   donnée, peu importe la dose. Périodes : 1 mois, 3 mois,
+   6 mois, 1 an. Sans plage personnalisée.
+   ========================================================= */
+const EM_PERIODS = [
+  { k:'30',  days:30,  label:'1 mois' },
+  { k:'90',  days:90,  label:'3 mois' },
+  { k:'180', days:180, label:'6 mois' },
+  { k:'365', days:365, label:'1 an' }
+];
+
+async function renderMelStats(){
+  const allDays = await fetchAllDays();
+  const totalDays = Object.keys(allDays).length;
+  const today=todayKey();
+
+  const sufficient = EM_PERIODS.filter(p => totalDays >= p.days);
+  const insufficient = EM_PERIODS.filter(p => totalDays < p.days);
+
+  if(insufficient.length === EM_PERIODS.length){
+    // Aucune période atteinte : afficher le message global
+    $('emInsuff').classList.remove('hidden');
+    $('emBody').classList.add('hidden');
+    $('emInsuffDetail').textContent='Données disponibles : '+totalDays+' jour'+(totalDays>1?'s':'')+' · minimum requis : '+EM_PERIODS[0].days+' jours (1 mois)';
+    return;
+  }
+  $('emInsuff').classList.add('hidden');
+  $('emBody').classList.remove('hidden');
+
+  let noteParts=[];
+
+  EM_PERIODS.forEach(p=>{
+    const ids=['emP'+p.k,'emSub'+p.k];
+    if(totalDays < p.days){
+      $('emP'+p.k).textContent='—';
+      $('emSub'+p.k).textContent='données insuffisantes ('+totalDays+'/'+p.days+' jours)';
+      noteParts.push(p.label+' : indisponible');
+      return;
+    }
+    // Fenêtre glissante sur les p.days derniers jours
+    const from=addDays(today,-(p.days-1));
+    let nDays=0, nEm=0;
+    let k=from;
+    while(k<=today){
+      const d=allDays[k];
+      if(d && typeof d.cat==='number'){
+        nDays++; // journée enregistrée
+        if(d.emOn===true){ nEm++; }
+      }
+      k=addDays(k,1);
+    }
+    if(nDays===0){
+      $('emP'+p.k).textContent='—';
+      $('emSub'+p.k).textContent='aucune journée dans la période';
+      return;
+    }
+    const pct=Math.round((nEm/nDays)*100);
+    $('emP'+p.k).textContent=pct+' %';
+    $('emSub'+p.k).textContent='mélatonine supplémentaire donnée '+nEm+' jour'+(nEm>1?'s':'')+' sur '+nDays+' enregistré'+(nDays>1?'s':'');
+    noteParts.push(p.label+' : '+pct+' % ('+nEm+'/'+nDays+')');
+  });
+
+  $('emNote').textContent='Le pourcentage compte chaque journée enregistrée où la mélatonine supplémentaire a été donnée, peu importe la dose. · '+noteParts.join(' · ');
+}
+
+// Rafraîchissement de la section à chaque ouverture de l'onglet Tendances
+// (second écouteur, coexistant avec celui du Bloc 2 — aucune interférence)
+document.querySelectorAll('.bnav a').forEach(a=>{
+  if(a.dataset.p==='trend'){ a.addEventListener('click',()=>renderMelStats()); }
+});

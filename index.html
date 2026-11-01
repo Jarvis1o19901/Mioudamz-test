@@ -138,6 +138,16 @@
   .pct-row .plab{ font-size:13.5px; color:#555; }
   .pct-row .pnum{ font-size:22px; font-weight:600; color:var(--acc); text-align:right; }
   .pct-row .psub{ font-size:11px; color:#999; }
+
+  /* Section Transit (incrément 6) */
+  .transit-stats{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+  .transit-stat{ background:#f7f6fb; border-radius:10px; padding:12px; text-align:center; }
+  .transit-stat .lab{ font-size:10.5px; color:#8a86a8; text-transform:uppercase; letter-spacing:.05em; line-height:1.2; }
+  .transit-stat .num{ font-size:24px; font-weight:600; color:var(--acc); margin-top:6px; }
+  .transit-stat .un{ font-size:10px; color:#999; }
+  .consist-bar{ height:8px; background:#e0e0e0; border-radius:4px; overflow:hidden; margin-top:6px; }
+  .consist-fill{ height:100%; background:linear-gradient(90deg,#a898ec,#6d4aff); width:0%; transition:width .3s; }
+  .consist-label{ font-size:10px; color:#aaa; text-align:center; margin-top:2px; }
 </style>
 </head>
 <body>
@@ -433,7 +443,39 @@
       </div>
     </div>
 
-    <div class="placeholder">Les autres sections (Transit, Compliance) seront ajoutées aux incréments suivants.</div>
+    <div class="chart-card">
+      <h3>Transit intestinal · portrait</h3>
+      <div class="rng" id="txRng">
+        <button data-k="1sem" class="on">1 sem</button>
+        <button data-k="2sem">2 sem</button>
+        <button data-k="1mois">1 mois</button>
+      </div>
+      <div class="insufficient hidden" id="txInsuff"><span class="ico">📊</span><b>Données insuffisantes</b><br>Cette période exige plus de journées enregistrées que disponible.<br><span style="font-size:12px" id="txInsuffDetail"></span></div>
+      <div id="txBody">
+        <div class="stats">
+          <div class="stat">
+            <div class="lab">Consistance moyenne</div>
+            <div class="num" id="txConsist">—</div>
+            <div class="un" id="txConsistSub">sur les jours avec selle</div>
+            <div class="consist-bar"><div class="consist-fill" id="txConsistBar"></div></div>
+            <div class="consist-label" id="txConsistLabel"></div>
+          </div>
+          <div class="stat">
+            <div class="lab">Dose moy. Lax-A-Day</div>
+            <div class="num" id="txLax">—</div>
+            <div class="un">mg/jour</div>
+          </div>
+          <div class="stat">
+            <div class="lab">Jours avec selle</div>
+            <div class="num" id="txDays">—</div>
+            <div class="un" id="txDaysSub">sur la période</div>
+          </div>
+        </div>
+        <div class="agg-note" id="txNote"></div>
+      </div>
+    </div>
+
+    <div class="placeholder">La section Compliance aux suppléments sera ajoutée à l'incrément suivant.</div>
   </div>
 
   <nav class="bnav">
@@ -1182,9 +1224,6 @@ $('tzTo').addEventListener('change',()=>{ tzCustomTo=$('tzTo').value||null; rend
 
 /* =========================================================
    Section 4 : Sommeil · mélatonine supplémentaire
-   Pourcentage de jours où la mélatonine supplémentaire a été
-   donnée, peu importe la dose. Périodes : 1 mois, 3 mois,
-   6 mois, 1 an. Sans plage personnalisée.
    ========================================================= */
 const EM_PERIODS = [
   { k:'30',  days:30,  label:'1 mois' },
@@ -1198,11 +1237,8 @@ async function renderMelStats(){
   const totalDays = Object.keys(allDays).length;
   const today=todayKey();
 
-  const sufficient = EM_PERIODS.filter(p => totalDays >= p.days);
-  const insufficient = EM_PERIODS.filter(p => totalDays < p.days);
-
-  if(insufficient.length === EM_PERIODS.length){
-    // Aucune période atteinte : afficher le message global
+  const anySufficient = EM_PERIODS.some(p => totalDays >= p.days);
+  if(!anySufficient){
     $('emInsuff').classList.remove('hidden');
     $('emBody').classList.add('hidden');
     $('emInsuffDetail').textContent='Données disponibles : '+totalDays+' jour'+(totalDays>1?'s':'')+' · minimum requis : '+EM_PERIODS[0].days+' jours (1 mois)';
@@ -1214,21 +1250,19 @@ async function renderMelStats(){
   let noteParts=[];
 
   EM_PERIODS.forEach(p=>{
-    const ids=['emP'+p.k,'emSub'+p.k];
     if(totalDays < p.days){
       $('emP'+p.k).textContent='—';
       $('emSub'+p.k).textContent='données insuffisantes ('+totalDays+'/'+p.days+' jours)';
       noteParts.push(p.label+' : indisponible');
       return;
     }
-    // Fenêtre glissante sur les p.days derniers jours
     const from=addDays(today,-(p.days-1));
     let nDays=0, nEm=0;
     let k=from;
     while(k<=today){
       const d=allDays[k];
       if(d && typeof d.cat==='number'){
-        nDays++; // journée enregistrée
+        nDays++;
         if(d.emOn===true){ nEm++; }
       }
       k=addDays(k,1);
@@ -1247,11 +1281,101 @@ async function renderMelStats(){
   $('emNote').textContent='Le pourcentage compte chaque journée enregistrée où la mélatonine supplémentaire a été donnée, peu importe la dose. · '+noteParts.join(' · ');
 }
 
-// Rafraîchissement de la section à chaque ouverture de l'onglet Tendances
-// (second écouteur, coexistant avec celui du Bloc 2 — aucune interférence)
+/* =========================================================
+   Section 5 : Transit intestinal · portrait
+   Consistance moyenne (jours avec selle), dose moyenne
+   Lax-A-Day (tous les jours), jours avec selle.
+   ========================================================= */
+const TX_PERIODS = { '1sem':7, '2sem':14, '1mois':30 };
+const CONSIST_SCALE = { 'Dur':1, 'Correct':2, 'Mou':3, 'Diarrhée':4 };
+const CONSIST_NAMES = ['','dur','correct','mou','diarrhée'];
+let txPeriod = '1sem';
+
+async function renderTransitStats(){
+  const allDays = await fetchAllDays();
+  const totalDays = Object.keys(allDays).length;
+  const today=todayKey();
+  const required = TX_PERIODS[txPeriod];
+
+  if(totalDays < required){
+    $('txInsuff').classList.remove('hidden');
+    $('txBody').classList.add('hidden');
+    $('txInsuffDetail').textContent='Données disponibles : '+totalDays+' jour'+(totalDays>1?'s':'')+' · requis : '+required+' jours';
+    return;
+  }
+  $('txInsuff').classList.add('hidden');
+  $('txBody').classList.remove('hidden');
+
+  const from=addDays(today,-(required-1));
+  let nDays=0;          // journées enregistrées dans la période
+  let nSelleDays=0;      // journées avec au moins une selle
+  let consistSum=0, consistCount=0;  // somme et décompte des consistances
+  let laxSum=0;          // dose Lax-A-Day cumulée sur TOUS les jours
+  let k=from;
+  while(k<=today){
+    const d=allDays[k];
+    if(d && typeof d.cat==='number'){
+      nDays++;
+      // Lax-A-Day : moyenne sur toute la période
+      if(d.laxOn===true && typeof d.laxDose==='number'){
+        laxSum+=d.laxDose;
+      }
+      // Selles : décompte des jours et consistance
+      if(d.selleOn===true || (Array.isArray(d.selles) && d.selles.length>0)){
+        nSelleDays++;
+        const selles=Array.isArray(d.selles)?d.selles:[];
+        selles.forEach(s=>{
+          if(s && s.c && CONSIST_SCALE[s.c]){
+            consistSum+=CONSIST_SCALE[s.c];
+            consistCount++;
+          }
+        });
+      }
+    }
+    k=addDays(k,1);
+  }
+
+  // Jours avec selle
+  $('txDays').textContent=nSelleDays;
+  $('txDaysSub').textContent='jours sur '+nDays+' enregistré'+(nDays>1?'s':'');
+
+  // Dose moyenne Lax-A-Day (tous les jours, dose 0 si non donné)
+  $('txLax').textContent = nDays ? fmtFr(laxSum/nDays) : '—';
+
+  // Consistance moyenne
+  if(consistCount>0){
+    const avg=consistSum/consistCount;
+    $('txConsist').textContent=fmtFr(avg);
+    $('txConsistSub').textContent='sur '+nSelleDays+' jour'+(nSelleDays>1?'s':'')+' avec selle';
+    // Barre visuelle : 1=Dur (gauche) à 4=Diarrhée (droite)
+    const pctFill=((avg-1)/3)*100;
+    $('txConsistBar').style.width=Math.min(100,Math.max(0,pctFill))+'%';
+    $('txConsistLabel').textContent='Dur ← '+CONSIST_NAMES[Math.round(avg)]+' → Diarrhée';
+  } else {
+    $('txConsist').textContent='—';
+    $('txConsistSub').textContent='aucune selle rapportée';
+    $('txConsistBar').style.width='0%';
+    $('txConsistLabel').textContent='';
+  }
+
+  let note='Dose Lax-A-Day calculée sur l\'ensemble des '+nDays+' jour'+(nDays>1?'s':'')+' de la période (jours sans administration comptés à 0).';
+  if(consistCount>0){
+    note+=' Consistance moyenne calculée sur les jours où une selle a été rapportée.';
+  }
+  $('txNote').textContent=note;
+}
+
+$('txRng').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  $('txRng').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  txPeriod=b.dataset.k;
+  renderTransitStats();
+}));
+
+// Rafraîchissement des sections 4 et 5 à chaque ouverture de l'onglet Tendances
 document.querySelectorAll('.bnav a').forEach(a=>{
-  if(a.dataset.p==='trend'){ a.addEventListener('click',()=>renderMelStats()); }
+  if(a.dataset.p==='trend'){ a.addEventListener('click',()=>{ renderMelStats(); renderTransitStats(); }); }
 });
-</script> 
-</body> 
+</script>
+</body>
 </html>

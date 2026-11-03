@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>MIOUDAMZ</title>
+<style>
+  :root{ --acc:#6d4aff; }
+  *{ box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,'Segoe UI',system-ui,sans-serif; }
+  body{ background:#fafafa; color:#222; min-height:100vh; }
+  #login-screen{ width:100%; max-width:400px; margin:0 auto; padding:24px 20px; background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,.08); text-align:center; display:block; }
+  #login-screen h2{ color:var(--acc); margin-bottom:20px; font-size:24px; letter-spacing:.06em; }
+  .login-input{ width:100%; padding:12px; margin-bottom:14px; border:1px solid #ddd; border-radius:8px; font-size:16px; }
+  .login-btn{ width:100%; padding:12px; background:var(--acc); color:#fff; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer; }
+  .login-btn:disabled{ background:#ccc; }
+  .error-msg{ color:#d32f2f; font-size:14px; margin-top:10px; display:none; }
+  #app-container{ display:none; width:100%; max-width:640px; margin:0 auto; padding-bottom:80px; }
+  .header{ padding:16px; background:#fff; border-bottom:1px solid #e5e5e5; text-align:center; position:sticky; top:0; z-index:10; }
+  .header h1{ font-size:20px; font-weight:600; letter-spacing:.08em; color:var(--acc); }
+  .header .sub{ font-size:12px; color:#888; margin-top:4px; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .saved-dot{ width:8px; height:8px; border-radius:50%; background:#2a9d5a; display:inline-block; transition:background .3s; }
+  .saved-dot.busy{ background:#f0a020; }
+  .logout-btn{ position:absolute; top:10px; right:10px; background:#f2f0fa; color:#666; border:none; border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer; }
+  .page{ display:none; padding:18px 16px; }
+  .page.on{ display:block; }
+  .daynav{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .daynav .arrow{ width:44px; height:44px; border:1px solid #e0e0e0; border-radius:10px; background:#fff; color:#666; font-size:20px; cursor:pointer; flex-shrink:0; }
+  .daynav .arrow:disabled{ opacity:.25; cursor:default; }
+  .daynav h2{ font-weight:400; font-size:19px; color:#333; text-align:center; flex:1; min-width:0; padding:0 4px; }
+  .calwrap{ text-align:center; margin-bottom:10px; }
+  .calwrap button{ background:none; border:none; color:var(--acc); font-size:13px; cursor:pointer; text-decoration:underline; }
+  .sec{ background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:16px; margin-bottom:18px; position:relative; box-shadow:0 2px 6px rgba(0,0,0,.04); }
+  .sec::before{ content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--acc),#a898ec); border-radius:12px 12px 0 0; }
+  .sec h3{ font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#999; margin-bottom:12px; }
+  .fld{ margin-bottom:12px; }
+  label{ font-size:13px; color:#555; display:block; margin-bottom:4px; }
+  input[type=time],input[type=number],select,input[type=date]{ border:1px solid #ddd; border-radius:8px; padding:9px 10px; font-size:15px; width:100%; background:#fafafa; color:#222; }
+  input:focus,select:focus{ outline:none; border-color:var(--acc); background:#fff; }
+  input[readonly]{ background:#f4f4f6; color:#888; }
+  .inrow{ display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:start; }
+  .inrow label{ display:block; line-height:1.3; min-height:2.6em; }
+  .hidden{ display:none !important; }
+  .moment{ margin-bottom:14px; border-left:3px solid #e6e1f7; padding-left:12px; }
+  .moment:last-child{ margin-bottom:0; }
+  .moment .mt{ font-size:13px; font-weight:600; color:var(--acc); margin-bottom:8px; }
+
+  /* MEDICATION : structure empilée */
+  .med{ margin-bottom:12px; }
+  .med:last-child{ margin-bottom:0; }
+  .med .nm{ font-size:14px; color:#333; font-weight:600; margin-bottom:6px; }
+  .med .ctl{ display:grid; grid-template-columns:1fr 130px; gap:8px; align-items:center; }
+  .med .ctl-lax{ display:grid; grid-template-columns:110px 1fr; gap:8px; align-items:center; }
+  .med .ctl-lax .tog{ width:110px; }
+  .med .ctl-lax .tog button{ font-size:13.5px; padding:9px 0; }
+  .med .ctl-lax input[type=number]{ padding:9px 6px; text-align:center; font-size:14px; }
+
+  /* SUPPLEMENTS : structure empilée */
+  .sup-row{ margin-bottom:12px; }
+  .sup-row:last-child{ margin-bottom:0; }
+  .sup-name{ font-size:14px; color:#333; font-weight:600; margin-bottom:6px; }
+  .sup-ctl{ display:grid; grid-template-columns:1fr 110px 110px; gap:8px; align-items:center; }
+  .sup-ctl .tog{ width:110px; }
+  .sup-ctl .tog button{ font-size:13.5px; padding:9px 0; }
+  .sup-ctl input[type=number]{ padding:9px 6px; text-align:center; font-size:14px; }
+  .sup-ctl .sup-dose-empty{ text-align:center; color:#bbb; font-size:15px; padding:10px 0; background:#f4f4f6; border-radius:8px; }
+
+  .tog{ display:flex; border:1px solid #ddd; border-radius:8px; overflow:hidden; width:96px; }
+  .tog button{ flex:1; padding:9px 0; font-size:13.5px; background:#fafafa; color:#888; border:none; cursor:pointer; }
+  .tog button.on{ background:var(--acc); color:#fff; }
+  .dash{ font-size:16px; color:#bbb; text-align:center; padding:10px 0; background:#f4f4f6; border-radius:8px; }
+  .sl{ display:flex; align-items:flex-start; gap:12px; }
+  .sl .val{ min-width:52px; text-align:center; font-size:22px; font-weight:600; color:var(--acc); background:#f3efff; border-radius:10px; padding:8px 4px; }
+  .slwrap{ flex:1; min-width:0; }
+  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:34px; background:transparent; display:block; }
+  input[type=range]::-webkit-slider-runnable-track{ height:8px; border-radius:4px; background:#e6e1f7; }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:var(--acc); margin-top:-9px; border:3px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.25); }
+  input[type=range]::-moz-range-track{ height:8px; border-radius:4px; background:#e6e1f7; }
+  input[type=range]::-moz-range-thumb{ width:20px; height:20px; border-radius:50%; background:var(--acc); border:3px solid #fff; }
+  .ticks{ position:relative; height:20px; }
+  .tick{ position:absolute; width:1px; height:6px; background:#ccc; bottom:4px; }
+  .tick.l{ background:var(--acc); height:9px; }
+  .tick-num{ position:absolute; bottom:16px; font-size:10px; color:#aaa; transform:translateX(-50%); }
+  .endlabels{ display:flex; justify-content:space-between; font-size:10.5px; color:#aaa; margin-top:1px; }
+  .addlink{ background:#f3efff; color:var(--acc); border:1.5px dashed #cbc2f0; border-radius:8px; padding:10px; font-size:13.5px; text-align:center; cursor:pointer; margin-top:8px; width:100%; }
+  .tr-hd h2{ font-size:19px; font-weight:400; color:#333; margin:4px 0 12px; }
+  .chart-card{ background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:16px; margin-bottom:18px; position:relative; box-shadow:0 2px 6px rgba(0,0,0,.04); }
+  .chart-card::before{ content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--acc),#a898ec); border-radius:12px 12px 0 0; }
+  .chart-card h3{ font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:#999; margin-bottom:12px; }
+  .rng{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .rng button{ border:1px solid #ddd; background:#fff; border-radius:16px; padding:6px 12px; font-size:12.5px; color:#666; cursor:pointer; }
+  .rng button.on{ background:var(--acc); color:#fff; border-color:var(--acc); }
+  .customrange{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:10px; padding:8px 10px; background:#f7f6fb; border-radius:10px; font-size:12.5px; color:#666; }
+  .customrange input[type=date]{ width:auto; }
+  .legend{ display:flex; gap:14px; font-size:12px; color:#666; margin-top:8px; flex-wrap:wrap; }
+  .sw{ display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .agg-note{ font-size:11.5px; color:#999; margin-top:4px; }
+  .chart-click{ position:relative; cursor:pointer; border:1px solid #eee; border-radius:10px; padding:6px; background:#fff; }
+  .chart-click .zoompill{ position:absolute; top:10px; right:10px; font-size:10.5px; color:var(--acc); background:#f3efff; border-radius:12px; padding:3px 10px; z-index:2; }
+  .chart-click svg{ width:100%; height:auto; display:block; }
+  .insufficient{ text-align:center; padding:42px 16px; background:#faf9fd; border:1.5px dashed #d5cdf3; border-radius:10px; color:#8a86a8; font-size:14px; }
+  .insufficient .ico{ font-size:30px; display:block; margin-bottom:8px; }
+  .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .stat{ background:#f7f6fb; border-radius:10px; padding:14px; text-align:center; }
+  .stat .lab{ font-size:11px; color:#8a86a8; text-transform:uppercase; letter-spacing:.05em; }
+  .stat .num{ font-size:28px; font-weight:600; color:var(--acc); margin-top:4px; }
+  .stat .un{ font-size:11px; color:#999; }
+  .leg-scale{ display:flex; justify-content:space-between; font-size:11px; color:#aaa; margin-top:10px; background:#f7f6fb; border-radius:8px; padding:8px 12px; flex-wrap:wrap; gap:4px; }
+  .placeholder{ text-align:center; color:#999; padding:40px 16px; font-size:14px; }
+  .modal{ position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:100; }
+  .modal.on{ display:flex; }
+  .calbox{ background:#fff; border-radius:14px; padding:18px; width:min(340px,94vw); }
+  .cal-mmyy{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .cal-mmyy button.arrow2{ width:32px; height:32px; border:1px solid #e0e0e0; border-radius:8px; background:#fff; color:#666; font-size:16px; cursor:pointer; }
+  .cal-mmyy .mm{ flex:1; text-align:center; display:flex; gap:8px; justify-content:center; }
+  .cal-mmyy select{ width:auto; padding:6px 8px; font-size:13.5px; }
+  .calhead{ display:grid; grid-template-columns:repeat(7,1fr); font-size:10px; color:#aaa; text-align:center; margin-bottom:3px; }
+  .calgrid{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .calgrid button{ aspect-ratio:1; border:none; background:#f7f6fa; border-radius:7px; font-size:12px; color:#444; cursor:pointer; }
+  .calgrid button.today{ background:var(--acc); color:#fff; font-weight:600; }
+  .calgrid button.off{ background:transparent; color:#ccc; cursor:default; }
+  .bigmodal{ position:fixed; inset:0; background:rgba(20,15,45,.55); display:none; align-items:center; justify-content:center; z-index:200; padding:10px; }
+  .bigmodal.on{ display:flex; }
+  .bigbox{ background:#fff; border-radius:14px; width:100%; max-width:760px; max-height:96vh; display:flex; flex-direction:column; position:relative; box-shadow:0 10px 40px rgba(0,0,0,.3); }
+  .bigbox .bhead{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px 6px; }
+  .bigbox .bhead h4{ font-size:15px; font-weight:600; color:#333; }
+  .bigclose{ width:38px; height:38px; border:none; border-radius:50%; background:#f2f0fa; color:#555; font-size:20px; font-weight:700; cursor:pointer; line-height:1; flex-shrink:0; }
+  .biglegend{ display:flex; gap:18px; font-size:14px; color:#555; padding:10px 16px 2px; flex-wrap:wrap; }
+  .bigbody{ padding:4px 12px 14px; overflow-y:auto; }
+  .bigbody svg{ width:100%; height:auto; display:block; }
+  .bignote{ font-size:12px; color:#999; padding:0 16px 12px; }
+  .bnav{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e5e5e5; display:flex; z-index:50; max-width:640px; margin:0 auto; }
+  .bnav a{ flex:1; text-align:center; padding:10px 0 14px; font-size:11px; color:#999; text-decoration:none; cursor:pointer; }
+  .bnav a.on{ color:var(--acc); font-weight:600; }
+
+  /* Section mélatonine (incrément 5) */
+  .pct-list{ display:grid; gap:10px; }
+  .pct-row{ display:grid; grid-template-columns:1fr 74px; gap:10px; align-items:center; background:#f7f6fb; border-radius:10px; padding:12px 14px; }
+  .pct-row .plab{ font-size:13.5px; color:#555; }
+  .pct-row .pnum{ font-size:22px; font-weight:600; color:var(--acc); text-align:right; }
+  .pct-row .psub{ font-size:11px; color:#999; }
+
+  /* Section Transit (incrément 6) */
+  .transit-stats{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+  .transit-stat{ background:#f7f6fb; border-radius:10px; padding:12px; text-align:center; }
+  .transit-stat .lab{ font-size:10.5px; color:#8a86a8; text-transform:uppercase; letter-spacing:.05em; line-height:1.2; }
+  .transit-stat .num{ font-size:24px; font-weight:600; color:var(--acc); margin-top:6px; }
+  .transit-stat .un{ font-size:10px; color:#999; }
+  .consist-bar{ height:8px; background:#e0e0e0; border-radius:4px; overflow:hidden; margin-top:6px; }
+  .consist-fill{ height:100%; background:linear-gradient(90deg,#a898ec,#6d4aff); width:0%; transition:width .3s; }
+  .consist-label{ font-size:10px; color:#aaa; text-align:center; margin-top:2px; }
+
+  /* Section Compliance (incrément 7) */
+  .comp-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .comp-table th{ background:#f7f6fb; color:#8a86a8; font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:.05em; padding:9px 6px; text-align:center; border-bottom:1px solid #ececf2; }
+  .comp-table th:first-child{ text-align:left; padding-left:12px; }
+  .comp-table td{ padding:11px 6px; text-align:center; border-bottom:1px solid #f2f2f6; color:#555; }
+  .comp-table td:first-child{ text-align:left; padding-left:12px; color:#333; font-weight:600; }
+  .comp-table tr:last-child td{ border-bottom:none; }
+  .comp-pct{ font-weight:600; color:var(--acc); font-size:14px; }
+  .comp-pct.off{ color:#bbb; font-weight:400; }
+
+  /* Révision : listes Oui/Non, curseurs vides, verrou de chargement */
+  select.yn{ width:110px; }
+  input:disabled{ background:#f4f4f6; color:#888; }
+  input[type=range].unset::-webkit-slider-thumb{ background:#c9c9d4; }
+  input[type=range].unset::-moz-range-thumb{ background:#c9c9d4; }
+  .sl .val.unset{ color:#bbb; background:#f4f4f6; }
+  .clearlink{ background:none; border:none; color:#999; font-size:12px; text-decoration:underline; cursor:pointer; margin-top:6px; padding:0; }
+  #p-entry.loading .sec{ opacity:.5; pointer-events:none; }
+
+  /* ===== Ajouts de la révision 2 ===== */
+  /* champ de dose avec unité */
+  .uin{ display:flex; align-items:center; border:1px solid #ddd; border-radius:8px; background:#fafafa; min-width:0; }
+  .uin:focus-within{ border-color:var(--acc); background:#fff; }
+  .uin input[type=number]{ border:none; background:transparent; width:100%; min-width:0; padding:9px 4px 9px 10px; text-align:left; font-size:15px; }
+  .sup-ctl .uin input[type=number], .ctl-lax .uin input[type=number]{ padding:9px 2px 9px 8px; text-align:right; font-size:14px; }
+  .uin input[type=number]:focus{ background:transparent; }
+  .uin input:disabled{ background:transparent; }
+  .uin.dis{ background:#f4f4f6; }
+  .uin span{ font-size:12.5px; color:#888; padding:0 9px 0 4px; white-space:nowrap; }
+  .rowlab{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .rowlab label{ margin:0; }
+  .inrow3{ display:grid; grid-template-columns:1fr 1fr 38px; gap:8px; align-items:end; margin-top:10px; }
+  .inrow3 .fld{ margin:0; }
+  .rowdel{ width:38px; height:40px; border:1px solid #e6e1f7; background:#fff; color:#999; border-radius:8px; font-size:15px; cursor:pointer; }
+  .rowdel.invisible{ visibility:hidden; }
+  input:disabled{ background:#f4f4f6; color:#888; }
+  #p-entry.loading .sec{ opacity:.5; pointer-events:none; }
+  /* curseur maison : seul le bouton se déplace */
+  .cslider{ position:relative; height:34px; touch-action:pan-y; }
+  .cs-track{ position:absolute; left:13px; right:13px; top:13px; height:8px; border-radius:4px; background:#e6e1f7; }
+  .cs-thumb{ position:absolute; top:4px; left:50%; width:26px; height:26px; margin-left:-13px; border-radius:50%; background:var(--acc); border:3px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.25); touch-action:none; cursor:grab; outline:none; transition:transform .1s; }
+  .cs-thumb::before{ content:''; position:absolute; inset:-12px; border-radius:50%; }
+  .cs-thumb:focus-visible{ box-shadow:0 0 0 3px #cbc2f0; }
+  .cs-thumb.drag{ transform:scale(1.15); cursor:grabbing; }
+  .cslider.unset .cs-thumb{ background:#c9c9d4; }
+  .sl .val.unset{ color:#bbb; background:#f4f4f6; }
+  .clearlink{ background:none; border:none; color:#999; font-size:12px; text-decoration:underline; cursor:pointer; margin-top:6px; padding:0; }
+  .lvl-desc{ font-size:12.5px; color:#555; background:#f7f6fb; border-radius:8px; padding:8px 10px; margin-top:8px; line-height:1.4; }
+  .lvl-desc.unset{ color:#999; }
+  .sympt{ font-size:12px; color:#777; margin:0 0 6px; line-height:1.4; }
+  details.scale{ margin-top:8px; font-size:12.5px; color:#555; }
+  details.scale summary{ color:var(--acc); cursor:pointer; font-size:12.5px; }
+  .scale-row{ display:grid; grid-template-columns:22px 1fr; gap:6px; padding:6px 0; border-bottom:1px solid #f2f2f6; line-height:1.35; }
+  .scale-row:last-child{ border-bottom:none; }
+  .scale-row b{ color:var(--acc); }
+  /* tendances */
+  .chart-click{ margin-top:12px; }
+  .cmp-title{ font-size:12.5px; color:#555; margin:16px 0 6px; font-weight:600; }
+  .cmp-msg{ font-size:12.5px; color:#888; background:#f7f6fb; border-radius:8px; padding:10px; text-align:center; }
+  .caveat{ font-size:11.5px; color:#7a6300; background:#fff8e6; border-radius:8px; padding:7px 10px; margin-top:10px; line-height:1.4; }
+  .comp-table .few{ color:#bbb; font-size:10.5px; font-weight:400; }
+  .dash-sw{ display:inline-block; width:16px; height:0; border-top:3px dashed; margin-right:5px; vertical-align:3px; }
+  /* réglages */
+  .hint{ font-size:12.5px; color:#777; margin-bottom:14px; line-height:1.45; }
+  .set-row{ display:grid; grid-template-columns:1fr 118px 104px; gap:8px; align-items:center; margin-bottom:10px; }
+  .set-row .lab{ font-size:13.5px; color:#333; font-weight:600; line-height:1.25; }
+  .set-err{ color:#d32f2f; font-size:13px; margin-top:8px; display:none; }
+  /* message bref */
+  .toast{ position:fixed; left:50%; bottom:74px; transform:translateX(-50%); background:#333; color:#fff; font-size:13px; padding:10px 16px; border-radius:20px; z-index:300; opacity:0; transition:opacity .3s; pointer-events:none; max-width:90vw; text-align:center; }
+  .toast.on{ opacity:1; }
+  .transit-stats{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .transit-stat{ padding:12px 6px; min-width:0; }
+  .transit-stat .lab{ letter-spacing:.02em; overflow-wrap:anywhere; hyphens:auto; }
+  .cp-table{ table-layout:fixed; }
+  .cp-table th, .cp-table td{ padding-left:2px; padding-right:2px; }
+  .cp-table th:first-child, .cp-table td:first-child{ padding-left:8px; hyphens:auto; -webkit-hyphens:auto; }
+  .cp-table td:first-child{ font-size:12px; }
+  .cp-table .comp-pct{ font-size:clamp(11.5px, 4vw, 15px); white-space:nowrap; }
+  .cp-table th{ letter-spacing:.02em; }
+  .chart-click{ padding-top:32px; }
+  .chart-click .zoompill{ top:7px; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h2>MIOUDAMZ</h2>
+  <p style="color:#666;margin-bottom:20px;font-size:14px;">Accès réservé aux parents</p>
+  <input type="email" id="email" class="login-input" placeholder="Courriel" autocomplete="username">
+  <input type="password" id="password" class="login-input" placeholder="Mot de passe" autocomplete="current-password">
+  <button id="loginBtn" class="login-btn">Se connecter</button>
+  <div id="errorMsg" class="error-msg"></div>
+</div>
+
+<div id="app-container">
+  <div class="header">
+    <button class="logout-btn" id="logoutBtn">Déconnexion</button>
+    <h1>MIOUDAMZ</h1>
+    <div class="sub"><span class="saved-dot" id="dotsav"></span> Enregistré automatiquement</div>
+  </div>
+
+  <!-- ================= PAGE SAISIE ================= -->
+  <div class="page on loading" id="p-entry">
+    <div class="daynav">
+      <button class="arrow" id="prevDay" aria-label="Journée précédente">‹</button>
+      <h2 id="dayTitle">—</h2>
+      <button class="arrow" id="nextDay" aria-label="Journée suivante">›</button>
+    </div>
+    <div class="calwrap"><button id="openCal">Choisir une date</button></div>
+
+    <div class="sec"><h3>Sommeil (nuit précédente)</h3>
+      <div class="inrow">
+        <div class="fld"><label>Coucher</label><input type="time" id="bed"></div>
+        <div class="fld"><label>Éveil</label><input type="time" id="wake"></div>
+      </div>
+      <div class="fld">
+        <div class="rowlab">
+          <label>Éveil nocturne ?</label>
+          <select class="yn" id="nwSel"><option value="">—</option><option value="1">Oui</option><option value="0">Non</option></select>
+        </div>
+        <div id="nwZone" class="hidden">
+          <div id="nwList"></div>
+          <button class="addlink" id="addNwBtn">＋ Ajouter un éveil</button>
+        </div>
+      </div>
+      <div class="fld" style="margin:0;">
+        <label>Total heures de sommeil</label>
+        <input type="text" id="sleepOut" readonly style="text-align:center;font-weight:600;color:var(--acc);font-size:18px;letter-spacing:2px;">
+      </div>
+    </div>
+
+    <div class="sec"><h3>Médication</h3>
+      <div class="moment"><div class="mt">☀️ Matin</div>
+        <div class="med"><div class="nm">Lorazépam</div>
+          <div class="ctl"><div class="uin"><input type="number" id="lorAM" step="0.1" min="0" inputmode="decimal"><span>mg</span></div><input type="time" id="lorAMt"></div>
+        </div>
+        <div class="med"><div class="nm">Lax-A-Day</div>
+          <div class="ctl-lax">
+            <select class="yn" id="laxSel"><option value="">—</option><option value="1">Oui</option><option value="0">Non</option></select>
+            <div><div class="uin hidden" id="laxDoseWrap"><input type="number" id="laxDose" step="1.25" min="0" max="15" inputmode="decimal"><span>cc</span></div>
+            <div class="dash" id="laxDash">—</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="moment"><div class="mt">🕛 Midi</div>
+        <div class="med"><div class="nm">Lorazépam</div>
+          <div class="ctl"><div class="uin"><input type="number" id="lorMidi" step="0.1" min="0" inputmode="decimal"><span>mg</span></div><input type="time" id="lorMidiT"></div>
+        </div>
+      </div>
+      <div class="moment"><div class="mt">🌙 Soir</div>
+        <div class="med"><div class="nm">Lorazépam</div>
+          <div class="ctl"><div class="uin"><input type="number" id="lorSoir" step="0.1" min="0" inputmode="decimal"><span>mg</span></div><input type="time" id="lorSoirT"></div>
+        </div>
+        <div class="med"><div class="nm">Trazodone</div>
+          <div class="ctl"><div class="uin"><input type="number" id="traz" step="5" min="0" inputmode="decimal"><span>mg</span></div><input type="time" id="trazT"></div>
+        </div>
+        <div class="med"><div class="nm">Mélatozen</div>
+          <div class="ctl"><div class="uin"><input type="number" id="melz" step="0.5" min="0" inputmode="decimal"><span>mg</span></div><input type="time" id="melzT"></div>
+        </div>
+        <div style="border-left:3px solid #f0f0f6;padding-left:12px;margin-top:10px;">
+          <div class="rowlab" style="margin-bottom:8px;">
+            <div style="font-size:14px;color:#333;font-weight:600;">Mélatonine (dose supplémentaire)</div>
+            <select class="yn" id="emSel"><option value="">—</option><option value="1">Oui</option><option value="0">Non</option></select>
+          </div>
+          <div id="extraMelZone" class="hidden inrow">
+            <div class="fld" style="margin:0;"><label>Dose</label><div class="uin"><input type="number" id="emDose" step="0.5" min="0" max="10" inputmode="decimal"><span>mg</span></div></div>
+            <div class="fld" style="margin:0;"><label>Heure</label><input type="time" id="emTime"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec"><h3>Suppléments</h3>
+      <div class="sup-row"><div class="sup-name">Glycinate ferreux</div>
+        <div class="sup-ctl"><div></div>
+          <select class="yn supSel" data-k="fer"><option value="">—</option><option value="1">Oui</option><option value="0">Non</option></select>
+          <div class="uin dis" data-k="fer"><input type="number" class="supDose" data-k="fer" step="2" min="0" disabled inputmode="decimal"><span>mg</span></div>
+        </div>
+      </div>
+      <div class="sup-row"><div class="sup-name">Vitamine D</div>
+        <div class="sup-ctl"><div></div>
+          <select class="yn supSel" data-k="vitD"><option value="">—</option><option value="1">Oui</option><option value="0">Non</option></select>
+          <div class="uin dis" data-k="vitD"><input type="number" class="supDose" data-k="vitD" step="100" min="0" disabled inputmode="numeric"><span>UI</span></div>
+        </div>
+      </div>
+      <div class="sup-row"><div class="sup-name">Multivitamines</div>
+        <div class="sup-ctl"><div></div>
+          <select class="yn supSel" data-k="multi"><option value="">—</option><option value="1">Oui</option><option value="0">Non</option></select>
+          <div class="sup-dose-empty">—</div>
+        </div>
+      </div>
+      <div class="sup-row"><div class="sup-name">Oméga-3</div>
+        <div class="sup-ctl"><div></div>
+          <select class="yn supSel" data-k="omega"><option value="">—</option><option value="1">Oui</option><option value="0">Non</option></select>
+          <div class="sup-dose-empty">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec"><h3>Transit intestinal</h3>
+      <div class="fld rowlab">
+        <label>Selle aujourd'hui ?</label>
+        <select class="yn" id="stSel"><option value="">—</option><option value="1">Oui</option><option value="0">Non</option></select>
+      </div>
+      <div id="selleZone" class="hidden">
+        <div id="selleList"></div>
+        <button class="addlink" id="addSelleBtn">＋ Ajouter une selle</button>
+      </div>
+    </div>
+
+    <div class="sec"><h3>Évaluation de la journée</h3>
+      <div class="fld">
+        <label>Comportement catatonique <span style="float:right;color:var(--acc);font-weight:600;font-size:15px;" id="v-cat">—</span></label>
+        <p class="sympt">Symptômes : freezing moteur (inclut ambivalence, taper du pied ou de la main, incapacité à garder les jouets), hétéro-agressivité, auto-agressivité, agitation désorganisée.</p>
+        <div class="sl"><div class="val unset" id="b-cat">—</div><div class="slwrap">
+          <div class="cslider unset" id="s-cat"><div class="cs-track"></div><div class="cs-thumb" tabindex="0" role="slider" aria-label="Comportement catatonique" aria-valuemin="0" aria-valuemax="5"></div></div>
+          <div class="ticks" id="t-cat"></div></div></div>
+        <div class="endlabels"><span>0 · aucun symptôme</span><span>5 · constants</span></div>
+        <div class="lvl-desc unset" id="d-cat"></div>
+        <details class="scale"><summary>Voir l'échelle complète</summary><div class="scale-cat"></div></details>
+        <button type="button" class="clearlink hidden" id="clr-cat">Effacer cette évaluation</button>
+      </div>
+      <div class="fld" style="margin:0;">
+        <label>Bien-être général <span style="float:right;color:var(--acc);font-weight:600;font-size:15px;" id="v-well">—</span></label>
+        <div class="sl"><div class="val unset" id="b-well">—</div><div class="slwrap">
+          <div class="cslider unset" id="s-well"><div class="cs-track"></div><div class="cs-thumb" tabindex="0" role="slider" aria-label="Bien-être général" aria-valuemin="0" aria-valuemax="5"></div></div>
+          <div class="ticks" id="t-well"></div></div></div>
+        <div class="endlabels"><span>0 · crise continuelle</span><span>5 · joyeuse, sans inconfort</span></div>
+        <div class="lvl-desc unset" id="d-well"></div>
+        <details class="scale"><summary>Voir l'échelle complète</summary><div class="scale-well"></div></details>
+        <button type="button" class="clearlink hidden" id="clr-well">Effacer cette évaluation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PAGE TENDANCES ================= -->
+  <div class="page" id="p-trend">
+    <div class="tr-hd"><h2>Tendances</h2></div>
+
+    <div class="chart-card">
+      <h3>Catatonie &amp; bien-être</h3>
+      <div class="rng" id="cwRng">
+        <button data-k="1sem" class="on">1 sem</button><button data-k="2sem">2 sem</button><button data-k="1mois">1 mois</button>
+        <button data-k="2mois">2 mois</button><button data-k="3mois">3 mois</button><button data-k="6mois">6 mois</button>
+        <button data-k="1an">1 an</button><button data-k="custom">Plage personnalisée…</button>
+      </div>
+      <div class="customrange hidden" id="cwCustom"><span>Du</span><input type="date" id="cwFrom"><span>au</span><input type="date" id="cwTo"></div>
+      <div class="insufficient hidden" id="cwInsuff"><span class="ico">📊</span><b>Données insuffisantes</b><br><span style="font-size:12px" id="cwInsuffDetail"></span></div>
+      <div id="cwBody">
+        <div class="chart-click" id="cwChartBox"><span class="zoompill">⤢ Agrandir</span><svg id="cwSvg" viewBox="0 0 560 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+        <div class="legend" id="cwLegend"></div>
+        <div class="agg-note" id="cwNote"></div>
+      </div>
+      <details class="scale"><summary>Échelle de catatonie</summary><div class="scale-cat"></div></details>
+      <details class="scale"><summary>Échelle de bien-être</summary><div class="scale-well"></div></details>
+    </div>
+
+    <div class="chart-card">
+      <h3>Catatonie et Lorazépam</h3>
+      <div class="rng" id="loRng">
+        <button data-k="1sem" class="on">1 sem</button><button data-k="2sem">2 sem</button><button data-k="3sem">3 sem</button>
+        <button data-k="1mois">1 mois</button><button data-k="6sem">6 sem</button><button data-k="2mois">2 mois</button>
+        <button data-k="3mois">3 mois</button><button data-k="6mois">6 mois</button><button data-k="custom">Plage personnalisée…</button>
+      </div>
+      <div class="customrange hidden" id="loCustom"><span>Du</span><input type="date" id="loFrom"><span>au</span><input type="date" id="loTo"></div>
+      <div class="insufficient hidden" id="loInsuff"><span class="ico">📊</span><b>Données insuffisantes</b><br><span style="font-size:12px" id="loInsuffDetail"></span></div>
+      <div id="loBody">
+        <div class="stats">
+          <div class="stat"><div class="lab">Dose quotidienne totale moyenne</div><div class="num" id="loDose">—</div><div class="un">mg</div></div>
+          <div class="stat"><div class="lab">Score de catatonie moyen</div><div class="num" id="loCat">—</div><div class="un">sur 5</div></div>
+        </div>
+        <div class="chart-click" id="loChartBox"><span class="zoompill">⤢ Agrandir</span><svg id="loSvg" viewBox="0 0 560 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+        <div class="legend" id="loLegend"></div>
+        <div class="cmp-title">Catatonie moyenne selon la dose totale de Lorazépam</div>
+        <div id="loCmp"></div>
+        <div class="agg-note" id="loNote"></div>
+        <div class="caveat">Ces chiffres montrent une association, pas une cause. Par exemple, une dose augmentée parce que les symptômes s'aggravaient donnera des jours « forte dose » avec des scores élevés.</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Sommeil et Trazodone</h3>
+      <div class="rng" id="tzRng">
+        <button data-k="1sem" class="on">1 sem</button><button data-k="2sem">2 sem</button><button data-k="1mois">1 mois</button>
+        <button data-k="2mois">2 mois</button><button data-k="3mois">3 mois</button><button data-k="6mois">6 mois</button>
+        <button data-k="custom">Plage personnalisée…</button>
+      </div>
+      <div class="customrange hidden" id="tzCustom"><span>Du</span><input type="date" id="tzFrom"><span>au</span><input type="date" id="tzTo"></div>
+      <div class="insufficient hidden" id="tzInsuff"><span class="ico">📊</span><b>Données insuffisantes</b><br><span style="font-size:12px" id="tzInsuffDetail"></span></div>
+      <div id="tzBody">
+        <div class="stats">
+          <div class="stat"><div class="lab">Dose moyenne de Trazodone</div><div class="num" id="tzDose">—</div><div class="un">mg, la veille au soir</div></div>
+          <div class="stat"><div class="lab">Sommeil moyen</div><div class="num" id="tzSleep">—</div><div class="un">par nuit</div></div>
+        </div>
+        <div class="chart-click" id="tzChartBox"><span class="zoompill">⤢ Agrandir</span><svg id="tzSvg" viewBox="0 0 560 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+        <div class="legend" id="tzLegend"></div>
+        <div class="cmp-title">Sommeil moyen selon la dose de Trazodone de la veille</div>
+        <div id="tzCmp"></div>
+        <div class="agg-note" id="tzNote"></div>
+        <div class="caveat">Ces chiffres montrent une association, pas une cause. D'autres facteurs (maladie, routine, saison) peuvent influencer le sommeil.</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Catatonie et Trazodone</h3>
+      <div class="rng" id="ctRng">
+        <button data-k="1sem" class="on">1 sem</button><button data-k="2sem">2 sem</button><button data-k="1mois">1 mois</button>
+        <button data-k="2mois">2 mois</button><button data-k="3mois">3 mois</button><button data-k="6mois">6 mois</button>
+        <button data-k="1an">1 an</button><button data-k="custom">Plage personnalisée…</button>
+      </div>
+      <div class="customrange hidden" id="ctCustom"><span>Du</span><input type="date" id="ctFrom"><span>au</span><input type="date" id="ctTo"></div>
+      <div class="insufficient hidden" id="ctInsuff"><span class="ico">📊</span><b>Données insuffisantes</b><br><span style="font-size:12px" id="ctInsuffDetail"></span></div>
+      <div id="ctBody">
+        <div class="stats">
+          <div class="stat"><div class="lab">Dose moyenne de Trazodone</div><div class="num" id="ctDose">—</div><div class="un">mg, la veille au soir</div></div>
+          <div class="stat"><div class="lab">Score de catatonie moyen</div><div class="num" id="ctCat">—</div><div class="un">sur 5</div></div>
+        </div>
+        <div class="chart-click" id="ctChartBox"><span class="zoompill">⤢ Agrandir</span><svg id="ctSvg" viewBox="0 0 560 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+        <div class="legend" id="ctLegend"></div>
+        <div class="cmp-title">Catatonie moyenne selon la dose de Trazodone de la veille</div>
+        <div id="ctCmp"></div>
+        <div class="agg-note" id="ctNote"></div>
+        <div class="caveat">Ces chiffres montrent une association, pas une cause. D'autres changements survenus en même temps, comme un ajustement du Lorazépam, peuvent expliquer une différence de score.</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Mélatonine supplémentaire</h3>
+      <div class="pct-list">
+        <div class="pct-row"><div><div class="plab">1 mois</div><div class="psub" id="emSub30">—</div></div><div class="pnum" id="emP30">—</div></div>
+        <div class="pct-row"><div><div class="plab">3 mois</div><div class="psub" id="emSub90">—</div></div><div class="pnum" id="emP90">—</div></div>
+        <div class="pct-row"><div><div class="plab">6 mois</div><div class="psub" id="emSub180">—</div></div><div class="pnum" id="emP180">—</div></div>
+        <div class="pct-row"><div><div class="plab">1 an</div><div class="psub" id="emSub365">—</div></div><div class="pnum" id="emP365">—</div></div>
+      </div>
+      <div class="agg-note">Pourcentage des journées renseignées où la mélatonine supplémentaire a été donnée.</div>
+      <div class="cmp-title">Sommeil avec et sans mélatonine</div>
+      <div class="rng" id="emcRng">
+        <button data-k="1mois">1 mois</button><button data-k="3mois" class="on">3 mois</button><button data-k="6mois">6 mois</button><button data-k="1an">1 an</button>
+      </div>
+      <div id="emCmp"></div>
+      <div class="agg-note" id="emNote"></div>
+      <div class="caveat">Association, pas cause : la mélatonine est souvent donnée les soirs difficiles, ce qui peut à lui seul expliquer un sommeil différent.</div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Transit intestinal · portrait</h3>
+      <div class="rng" id="txRng"><button data-k="1sem" class="on">1 sem</button><button data-k="2sem">2 sem</button><button data-k="1mois">1 mois</button></div>
+      <div class="insufficient hidden" id="txInsuff"><span class="ico">📊</span><b>Données insuffisantes</b><br><span style="font-size:12px" id="txInsuffDetail"></span></div>
+      <div id="txBody">
+        <div class="transit-stats">
+          <div class="transit-stat"><div class="lab">Consistance moyenne</div><div class="num" id="txConsist">—</div>
+            <div class="consist-label" style="line-height:1.5;margin-top:6px;">1 = dur<br>2 = correct<br>3 = mou<br>4 = diarrhée</div></div>
+          <div class="transit-stat"><div class="lab">Dose moy. Lax-A-Day</div><div class="num" id="txLax">—</div><div class="un">cc/jour</div></div>
+          <div class="transit-stat"><div class="lab">Jours avec selle</div><div class="num" id="txDays">—</div><div class="un" id="txDaysSub"></div></div>
+        </div>
+        <div class="agg-note" id="txNote"></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Compliance aux suppléments</h3>
+      <table class="comp-table cp-table">
+        <colgroup><col style="width:37%"><col><col><col><col></colgroup>
+        <thead><tr><th>Supplément</th><th>1 mois</th><th>3 mois</th><th>6 mois</th><th>1 an</th></tr></thead>
+        <tbody id="cpRows"></tbody>
+      </table>
+      <div class="agg-note">Pourcentage des journées renseignées où le supplément a été pris.</div>
+    </div>
+  </div>
+
+  <nav class="bnav">
+    <a class="on" data-p="entry">Saisie</a>
+    <a data-p="trend">Tendances</a>
+  </nav>
+</div>
+
+<!-- Calendrier -->
+<div class="modal" id="calModal">
+  <div class="calbox">
+    <div class="cal-mmyy">
+      <button class="arrow2" id="calPrev">‹</button>
+      <div class="mm"><select id="calMonth"></select><select id="calYear"></select></div>
+      <button class="arrow2" id="calNext">›</button>
+    </div>
+    <div class="calhead"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+    <div class="calgrid" id="calGrid"></div>
+    <p style="font-size:11px;color:#999;margin-top:10px;text-align:center;" id="calStartNote"></p>
+  </div>
+</div>
+
+<!-- Grand graphique -->
+<div class="bigmodal" id="bigModal">
+  <div class="bigbox">
+    <div class="bhead"><h4 id="bigTitle"></h4><button class="bigclose" id="bigClose" aria-label="Fermer">✕</button></div>
+    <div class="biglegend" id="bigLegend"></div>
+    <div class="bigbody"><svg id="bigSvg" viewBox="0 0 720 600" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="bignote" id="bigNote"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCg8z-BfgiEzUWzulrdJhysC5i3Wd-UvTc",
+  authDomain: "mioudamz.firebaseapp.com",
+  projectId: "mioudamz",
+  storageBucket: "mioudamz.firebasestorage.app",
+  messagingSenderId: "71635012275",
+  appId: "1:71635012275:web:ae88a801bc076993fdbec6"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+'use strict';
+/* =========================================================
+   UTILITAIRES DE DATE ET DE FORMAT
+   ========================================================= */
+function now(){ return new Date(); }
+const pad = n => String(n).padStart(2,'0');
+const $ = id => document.getElementById(id);
+const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const JSEM = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+function isoKey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function todayKey(){ return isoKey(now()); }
+function parseKey(k){ const [y,m,d]=k.split('-').map(Number); return new Date(y,m-1,d); }
+function addDays(k,n){ const d=parseKey(k); d.setDate(d.getDate()+n); return isoKey(d); }
+function daysBetween(a,b){ return Math.round((parseKey(b)-parseKey(a))/86400000); }
+function toMin(t){ if(!t) return null; const p=String(t).split(':').map(Number); if(p.length<2||isNaN(p[0])||isNaN(p[1])) return null; return p[0]*60+p[1]; }
+function hhmm(m){ m=((Math.round(m)%1440)+1440)%1440; return pad(Math.floor(m/60))+':'+pad(m%60); }
+function fmtHM(mins){ mins=Math.max(0,Math.round(mins)); return pad(Math.floor(mins/60))+':'+pad(mins%60); }
+function fmtFr(v){ const s=v.toFixed(2).replace('.',','); return s.replace(/,?0+$/,'') || '0'; }
+function fmtH1(hours){ const h=Math.floor(hours); let m=Math.round((hours-h)*60); if(m===60) return (h+1)+' h 00'; return h+' h '+pad(m); }
+function fmtDayFr(k){ const d=parseKey(k); return JSEM[d.getDay()]+' '+d.getDate()+' '+MOIS[d.getMonth()]; }
+const clone = o => JSON.parse(JSON.stringify(o));
+const isNum = v => typeof v==='number' && !isNaN(v);
+function stable(v){
+  if(v===undefined) v=null;
+  if(Array.isArray(v)) return '['+v.map(stable).join(',')+']';
+  if(v && typeof v==='object') return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}';
+  return JSON.stringify(v);
+}
+function plural(n,word){ return n+' '+word+(n>1?'s':''); }
+
+/* =========================================================
+   COUCHE DE DONNÉES — FIREBASE
+   ========================================================= */
+const COLL = 'daily_entries';
+const Data = {
+  // Écoute une journée : le rappel reçoit (données ou null, écriture locale en attente ?)
+  listenDay(key, cb){
+    return onSnapshot(doc(db,COLL,key),
+      snap => cb(snap.exists() ? snap.data() : null, snap.metadata.hasPendingWrites),
+      err => { console.error(err); alert('Erreur de chargement de la journée. Rechargez la page.'); });
+  },
+  writeDay(key, data){
+    return setDoc(doc(db,COLL,key), { ...data, updatedAt: serverTimestamp() }, { merge:true });
+  },
+  async getAllDays(){
+    const snap = await getDocs(collection(db,COLL));
+    const map = {}; snap.forEach(d => { map[d.id] = d.data(); }); return map;
+  }
+};
+
+const START_DATE = '2026-10-30';
+
+/* =========================================================
+   CONSTANTES
+   ========================================================= */
+const DEFAULT_USUAL = {
+  lorAM:{dose:2.2,t:'07:00'}, lorMidi:{dose:2.2,t:'13:00'}, lorSoir:{dose:2.2,t:'20:00'},
+  traz:{dose:100,t:'20:00'}, melz:{dose:2.5,t:'20:00'},
+  em:{dose:3}, lax:{dose:5}, fer:{dose:18}, vitD:{dose:800}
+};
+// Doses et heures habituelles : modifiables ici seulement.
+let USUAL = clone(DEFAULT_USUAL);
+const MED_TIME = { lorAM:'lorAMt', lorMidi:'lorMidiT', lorSoir:'lorSoirT', traz:'trazT', melz:'melzT' };
+const CAT_LEVELS = [
+  ['aucun symptôme','Absence complète de symptômes.'],
+  ['symptômes isolés','Symptômes isolés dans la journée.'],
+  ['symptômes occasionnels','Symptômes occasionnels dans la journée.'],
+  ['symptômes fréquents','Symptômes fréquents dans la journée, avec des périodes prolongées sans symptômes.'],
+  ['symptômes très fréquents','Symptômes très fréquents dans la journée, avec quelques courtes périodes sans symptômes.'],
+  ['symptômes constants','Symptômes constants et ininterrompus toute la journée.']
+];
+const WELL_LEVELS = [
+  ['crise continuelle','Inconfort et crises continuels, ininterrompus toute la journée.'],
+  ['crises la majorité du temps','Inconfort et crises la majorité du temps dans la journée.'],
+  ['crises fréquentes','Inconfort et crises fréquents dans la journée, mais pas la majorité du temps.'],
+  ['journée neutre','Journée neutre : mélange d\'inconfort et de périodes joyeuses.'],
+  ['joyeuse, sans crise','Aucune crise, très rares manifestations d\'inconfort, humeur joyeuse la majorité de la journée.'],
+  ['joyeuse, sans inconfort','Aucun inconfort manifesté, humeur joyeuse constante.']
+];
+// Durées harmonisées (en jours), identiques pour toutes les cartes
+const PERIOD_DAYS = { '1sem':7, '2sem':14, '3sem':21, '1mois':30, '6sem':42, '2mois':60, '3mois':90, '6mois':180, '1an':365 };
+const MIN_RATIO = 0.5;   // au moins la moitié des jours de la période doivent être renseignés
+const CONSIST_SCALE = { 'Dur':1, 'Correct':2, 'Mou':3, 'Diarrhée':4 };
+const CONSIST_NAMES = ['','dur','correct','mou','diarrhée'];
+const COL = { cat:'#6d4aff', well:'#2a9d5a', dose:'#e07a2e', sleep:'#2f7fd1' };
+
+
+/* =========================================================
+   SAISIE — ÉTAT ET ENREGISTREMENT
+   ========================================================= */
+let uid = null;
+let currentDayKey = null;
+let unsubscribe = null;
+let dayReady = false;    // vrai quand la journée affichée est chargée
+let saveTimer = null;    // enregistrement différé en attente
+let pendingKey = null;   // journée à laquelle appartient la modification en attente
+let inFlight = 0;        // envois en cours
+let lastToday = null;    // date du jour connue (détection de minuit)
+
+function emptyData(){
+  return {
+    bedTime:'', wakeTime:'', nightWake:null, nightWakes:[],
+    lorAM:null, lorAMt:'', lorMidi:null, lorMidiT:'', lorSoir:null, lorSoirT:'',
+    laxOn:null, laxDose:null, traz:null, trazT:'', melz:null, melzT:'',
+    emOn:null, emDose:null, emTime:'',
+    fer:null, ferDose:null, vitD:null, vitDDose:null, multi:null, omega:null,
+    selleOn:null, selles:[], cat:null, well:null
+  };
+}
+function normalize(d){ const {updatedAt,createdAt,userId,...rest}=d||{}; return rest; }
+// Éveils nocturnes : lit aussi l'ancien format (un seul éveil)
+function nightWakesOf(d){
+  if(Array.isArray(d.nightWakes) && d.nightWakes.length) return d.nightWakes;
+  if(d.nightWakeStart || d.nightWakeEnd) return [{s:d.nightWakeStart||'', e:d.nightWakeEnd||''}];
+  return [];
+}
+function sleepCalc(bedT, wakeT, nwOn, wakes){
+  const bed=toMin(bedT), wake=toMin(wakeT);
+  if(bed===null||wake===null) return null;
+  let total=wake-bed; if(total<0) total+=1440;
+  if(nwOn) wakes.forEach(w=>{
+    const s=toMin(w.s), e=toMin(w.e);
+    if(s!==null&&e!==null){ let dd=e-s; if(dd<0) dd+=1440; total-=dd; }
+  });
+  return total<0 ? null : total;
+}
+function sleepMinutesFromData(d){ return d ? sleepCalc(d.bedTime, d.wakeTime, d.nightWake===true, nightWakesOf(d)) : null; }
+
+function loadDay(key){
+  flushSave();                                  // envoie d'abord la modification en attente
+  if(unsubscribe) unsubscribe();
+  currentDayKey = key;
+  dayReady = false;
+  populate(emptyData());
+  $('p-entry').classList.add('loading');        // formulaire verrouillé pendant le chargement
+  updateTitle(key); updateArrows();
+  unsubscribe = Data.listenDay(key, (data, pending) => {
+    if(key!==currentDayKey) return;
+    if(!dayReady){
+      populate(data ? normalize(data) : emptyData());
+      dayReady = true;
+      $('p-entry').classList.remove('loading');
+      return;
+    }
+    if(pending || saveTimer || inFlight>0) return;   // ne pas écraser une saisie en cours
+    if(data && !sameAsForm(normalize(data))) populate(normalize(data));
+  });
+}
+function sameAsForm(data){ const cur=collect(); return Object.keys(cur).every(k=>stable(cur[k])===stable(data[k])); }
+
+function setDot(){ $('dotsav').classList.toggle('busy', !!saveTimer || inFlight>0); }
+function queueSave(){
+  if(!dayReady || !uid) return;
+  pendingKey = currentDayKey;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 600);
+  setDot();
+}
+function flushSave(){
+  if(!saveTimer) return Promise.resolve();
+  clearTimeout(saveTimer); saveTimer=null;
+  const key=pendingKey; pendingKey=null;
+  if(!key || key!==currentDayKey || !dayReady){ setDot(); return Promise.resolve(); }
+  return writeDay(key, collect());
+}
+function writeDay(key, data){
+  inFlight++; setDot();
+  return Data.writeDay(key, data)
+    .catch(e=>{ console.error(e); alert('Échec de l\'enregistrement du '+fmtDayFr(key)+'. Vérifiez votre connexion.'); })
+    .finally(()=>{ inFlight--; setDot(); });
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden') flushSave();
+  else checkDateChange();
+});
+window.addEventListener('pagehide',()=>flushSave());
+
+/* =========================================================
+   SAISIE — LECTURE ET AFFICHAGE DU FORMULAIRE
+   ========================================================= */
+function num(id){ const raw=$(id).value; if(raw==='') return null; const v=parseFloat(raw); return isNaN(v)?null:v; }
+function supSel(k){ return document.querySelector('.supSel[data-k="'+k+'"]'); }
+function supDoseEl(k){ return document.querySelector('.supDose[data-k="'+k+'"]'); }
+function numSup(k){ const el=supDoseEl(k); if(!el||el.value==='') return null; const v=parseFloat(el.value); return isNaN(v)?null:v; }
+function ynFrom(v){ return v==='1' ? true : (v==='0' ? false : null); }
+function ynVal(id){ return ynFrom($(id).value); }
+function supVal(k){ return ynFrom(supSel(k).value); }
+function setYn(id,b){ $(id).value = b===true ? '1' : (b===false ? '0' : ''); }
+
+function collect(){
+  const nw=ynVal('nwSel'), laxOn=ynVal('laxSel'), emOn=ynVal('emSel'), selleOn=ynVal('stSel');
+  const fer=supVal('fer'), vitD=supVal('vitD');
+  const o = {
+    bedTime:$('bed').value, wakeTime:$('wake').value,
+    nightWake:nw, nightWakes: nw===true ? collectWakes() : [],
+    nightWakeStart:'', nightWakeEnd:'',          // ancien format, vidé
+    laxOn, laxDose: laxOn===true ? num('laxDose') : null,
+    emOn, emDose: emOn===true ? num('emDose') : null, emTime: emOn===true ? $('emTime').value : '',
+    fer, ferDose: fer===true ? numSup('fer') : null,
+    vitD, vitDDose: vitD===true ? numSup('vitD') : null,
+    multi:supVal('multi'), omega:supVal('omega'),
+    selleOn, selles: selleOn===true ? collectSelles() : [],
+    cat:sliders.cat.v, well:sliders.well.v
+  };
+  Object.keys(MED_TIME).forEach(id=>{ o[id]=num(id); o[MED_TIME[id]]=$(MED_TIME[id]).value; });
+  return o;
+}
+function collectWakes(){ return Array.from(document.querySelectorAll('#nwList .nwRow')).map(r=>({ s:r.querySelector('.nwS').value, e:r.querySelector('.nwE').value })); }
+function collectSelles(){ return Array.from(document.querySelectorAll('#selleList .selleRow')).map(r=>({ h:r.querySelector('input').value, c:r.querySelector('select').value })); }
+
+function populate(d){
+  $('bed').value=d.bedTime||''; $('wake').value=d.wakeTime||'';
+  setYn('nwSel', d.nightWake);
+  $('nwList').innerHTML='';
+  if(d.nightWake===true){ const w=nightWakesOf(d); (w.length?w:[{s:'',e:''}]).forEach(x=>addWakeRow(x.s,x.e)); }
+  $('nwZone').classList.toggle('hidden', d.nightWake!==true);
+  Object.keys(MED_TIME).forEach(id=>{ $(id).value=isNum(d[id])?d[id]:''; $(MED_TIME[id]).value=d[MED_TIME[id]]||''; });
+  setYn('laxSel', d.laxOn);
+  $('laxDose').value=(d.laxOn===true && isNum(d.laxDose))?d.laxDose:'';
+  updateLaxUI();
+  setYn('emSel', d.emOn);
+  $('emDose').value=(d.emOn===true && isNum(d.emDose))?d.emDose:'';
+  $('emTime').value=d.emOn===true?(d.emTime||''):'';
+  $('extraMelZone').classList.toggle('hidden', d.emOn!==true);
+  setSup('fer', d.fer, d.ferDose); setSup('vitD', d.vitD, d.vitDDose);
+  setSup('multi', d.multi); setSup('omega', d.omega);
+  setYn('stSel', d.selleOn);
+  $('selleList').innerHTML='';
+  if(d.selleOn===true){ const s=(Array.isArray(d.selles)&&d.selles.length)?d.selles:[{h:'',c:''}]; s.forEach(x=>addSelleRow(x.h,x.c)); }
+  $('selleZone').classList.toggle('hidden', d.selleOn!==true);
+  sliderSet('cat', isNum(d.cat)?d.cat:null); sliderSet('well', isNum(d.well)?d.well:null);
+  calcSleep();
+}
+function setSup(k,on,dose){
+  supSel(k).value = on===true ? '1' : (on===false ? '0' : '');
+  const inp=supDoseEl(k); if(!inp) return;
+  const wrap=inp.closest('.uin');
+  if(on===true){ inp.disabled=false; inp.value=isNum(dose)?dose:USUAL[k].dose; wrap.classList.remove('dis'); }
+  else { inp.disabled=true; inp.value=''; wrap.classList.add('dis'); }
+}
+function calcSleep(){
+  const t=sleepCalc($('bed').value, $('wake').value, ynVal('nwSel')===true, collectWakes());
+  $('sleepOut').value = t===null ? '' : fmtHM(t);
+}
+function updateLaxUI(){
+  const on=ynVal('laxSel')===true;
+  $('laxDoseWrap').classList.toggle('hidden',!on);
+  $('laxDash').classList.toggle('hidden',on);
+}
+
+/* ---- lignes répétables : éveils nocturnes et selles ---- */
+function refreshDel(listId){
+  const rows=Array.from($(listId).children);
+  rows.forEach(r=>r.querySelector('.rowdel').classList.toggle('invisible', rows.length<=1));
+}
+function addWakeRow(s,e){
+  const div=document.createElement('div');
+  div.className='inrow3 nwRow';
+  div.innerHTML='<div class="fld"><label>Heure éveil</label><input type="time" class="nwS"></div>'+
+    '<div class="fld"><label>Rendormissement</label><input type="time" class="nwE"></div>'+
+    '<button type="button" class="rowdel" aria-label="Supprimer cet éveil">✕</button>';
+  div.querySelector('.nwS').value=s||''; div.querySelector('.nwE').value=e||'';
+  div.querySelectorAll('input').forEach(el=>el.addEventListener('change',()=>{ calcSleep(); queueSave(); }));
+  div.querySelector('.rowdel').addEventListener('click',()=>{
+    if($('nwList').children.length<=1) return;
+    div.remove(); refreshDel('nwList'); calcSleep(); queueSave();
+  });
+  $('nwList').appendChild(div); refreshDel('nwList');
+}
+function addSelleRow(h,c){
+  const div=document.createElement('div');
+  div.className='inrow3 selleRow';
+  div.innerHTML='<div class="fld"><label>Heure</label><input type="time"></div>'+
+    '<div class="fld"><label>Consistance</label><select><option value="">—</option>'+
+    ['Dur','Correct','Mou','Diarrhée'].map(o=>'<option>'+o+'</option>').join('')+'</select></div>'+
+    '<button type="button" class="rowdel" aria-label="Supprimer cette selle">✕</button>';
+  div.querySelector('input').value=h||''; div.querySelector('select').value=c||'';
+  div.querySelectorAll('input,select').forEach(el=>el.addEventListener('change',queueSave));
+  div.querySelector('.rowdel').addEventListener('click',()=>{
+    if($('selleList').children.length<=1) return;
+    div.remove(); refreshDel('selleList'); queueSave();
+  });
+  $('selleList').appendChild(div); refreshDel('selleList');
+}
+
+/* =========================================================
+   CURSEURS : seul le bouton se déplace (toucher la barre ne fait rien)
+   ========================================================= */
+const sliders = {};
+function makeSlider(id, levels){
+  const root=$('s-'+id), thumb=root.querySelector('.cs-thumb');
+  const st={v:null, levels}; sliders[id]=st;
+  let drag=false, grab=0, startV=null;
+  const valFromX = x => {
+    const r=root.getBoundingClientRect(), inner=r.width-26;
+    const f=Math.min(1,Math.max(0,(x-r.left-13)/inner));
+    return Math.round(f*10)/2;
+  };
+  thumb.addEventListener('pointerdown',e=>{
+    if(!dayReady) return;
+    e.preventDefault(); e.stopPropagation();
+    const tr=thumb.getBoundingClientRect();
+    grab = e.clientX-(tr.left+tr.width/2);           // décalage doigt / centre du bouton
+    drag=true; startV=st.v;
+    thumb.setPointerCapture(e.pointerId); thumb.classList.add('drag');
+  });
+  thumb.addEventListener('pointermove',e=>{
+    if(!drag) return;
+    const v=valFromX(e.clientX-grab);
+    if(v!==st.v) sliderSet(id,v);
+  });
+  const end=()=>{
+    if(!drag) return;
+    drag=false; thumb.classList.remove('drag');
+    if(st.v===null) sliderSet(id,2.5);                // simple toucher du bouton gris : valeur affichée
+    if(st.v!==startV) queueSave();
+  };
+  thumb.addEventListener('pointerup',end);
+  thumb.addEventListener('pointercancel',end);
+  thumb.addEventListener('keydown',e=>{
+    if(!dayReady) return;
+    let v = st.v===null ? 2.5 : st.v;
+    if(e.key==='ArrowRight'||e.key==='ArrowUp') v=Math.min(5,v+0.5);
+    else if(e.key==='ArrowLeft'||e.key==='ArrowDown') v=Math.max(0,v-0.5);
+    else if(e.key==='Home') v=0; else if(e.key==='End') v=5; else return;
+    e.preventDefault(); sliderSet(id,v); queueSave();
+  });
+  $('clr-'+id).addEventListener('click',()=>{ sliderSet(id,null); queueSave(); });
+  // graduations
+  const c=$('t-'+id);
+  for(let i=0;i<=10;i++){
+    const left='calc(13px + (100% - 26px) * '+(i/10)+')';
+    const t=document.createElement('div'); t.className='tick'+(i%2===0?' l':''); t.style.left=left; c.appendChild(t);
+    if(i%2===0){ const n=document.createElement('div'); n.className='tick-num'; n.textContent=i/2; n.style.left=left; c.appendChild(n); }
+  }
+}
+function sliderSet(id,v){
+  const st=sliders[id], root=$('s-'+id), thumb=root.querySelector('.cs-thumb');
+  st.v = v;
+  const shown = v===null ? 2.5 : v;
+  thumb.style.left='calc(13px + (100% - 26px) * '+(shown/5)+')';
+  root.classList.toggle('unset', v===null);
+  const s = v===null ? '—' : v.toFixed(1).replace('.',',');
+  $('b-'+id).textContent=s; $('v-'+id).textContent=s;
+  $('b-'+id).classList.toggle('unset', v===null);
+  $('clr-'+id).classList.toggle('hidden', v===null);
+  thumb.setAttribute('aria-valuenow', v===null ? '' : v);
+  const d=$('d-'+id);
+  d.classList.toggle('unset', v===null);
+  d.textContent = levelText(st.levels, v);
+}
+function levelText(levels,v){
+  if(v===null) return 'Non évalué. Faites glisser le bouton pour évaluer.';
+  if(Number.isInteger(v)) return v+' : '+levels[v][1];
+  const a=Math.floor(v), b=a+1;
+  return String(v).replace('.',',')+' : entre '+a+' ('+levels[a][0]+') et '+b+' ('+levels[b][0]+').';
+}
+function buildScales(){
+  const html = L => L.map((x,i)=>'<div class="scale-row"><b>'+i+'</b><span>'+x[1]+'</span></div>').join('');
+  document.querySelectorAll('.scale-cat').forEach(e=>e.innerHTML=html(CAT_LEVELS));
+  document.querySelectorAll('.scale-well').forEach(e=>e.innerHTML=html(WELL_LEVELS));
+}
+
+/* =========================================================
+   SAISIE — ÉVÉNEMENTS
+   ========================================================= */
+['bed','wake'].forEach(id=>$(id).addEventListener('change',()=>{ calcSleep(); queueSave(); }));
+$('nwSel').addEventListener('change',()=>{
+  const on=ynVal('nwSel')===true;
+  if(on && !$('nwList').children.length) addWakeRow('','');
+  if(!on) $('nwList').innerHTML='';
+  $('nwZone').classList.toggle('hidden',!on);
+  calcSleep(); queueSave();
+});
+$('addNwBtn').addEventListener('click',()=>{ addWakeRow('',''); queueSave(); });
+$('laxSel').addEventListener('change',()=>{
+  if(ynVal('laxSel')===true && $('laxDose').value==='') $('laxDose').value=USUAL.lax.dose;
+  updateLaxUI(); queueSave();
+});
+$('laxDose').addEventListener('input',queueSave);
+$('emSel').addEventListener('change',()=>{
+  const on=ynVal('emSel')===true;
+  if(on && $('emDose').value==='') $('emDose').value=USUAL.em.dose;
+  $('extraMelZone').classList.toggle('hidden',!on);
+  queueSave();
+});
+$('emDose').addEventListener('input',queueSave);
+$('emTime').addEventListener('change',queueSave);
+document.querySelectorAll('.supSel').forEach(sel=>sel.addEventListener('change',()=>{
+  const k=sel.dataset.k; setSup(k, supVal(k), numSup(k)); queueSave();
+}));
+document.querySelectorAll('.supDose').forEach(i=>i.addEventListener('input',queueSave));
+$('stSel').addEventListener('change',()=>{
+  const on=ynVal('stSel')===true;
+  if(on && !$('selleList').children.length) addSelleRow('','');
+  if(!on) $('selleList').innerHTML='';
+  $('selleZone').classList.toggle('hidden',!on);
+  queueSave();
+});
+$('addSelleBtn').addEventListener('click',()=>{ addSelleRow('',''); queueSave(); });
+Object.keys(MED_TIME).forEach(id=>{
+  $(id).addEventListener('input',()=>{
+    if($(id).value!=='' && $(MED_TIME[id]).value==='') $(MED_TIME[id]).value=USUAL[id].t;
+    queueSave();
+  });
+  $(MED_TIME[id]).addEventListener('change',queueSave);
+});
+
+/* =========================================================
+   NAVIGATION ENTRE JOURNÉES, CALENDRIER, MINUIT
+   ========================================================= */
+function updateTitle(key){ $('dayTitle').textContent=fmtDayFr(key)+(key===todayKey()?'':' (consultation)'); }
+function updateArrows(){
+  $('prevDay').disabled = currentDayKey<=START_DATE;
+  $('nextDay').disabled = currentDayKey>=todayKey();
+}
+$('prevDay').addEventListener('click',()=>step(-1));
+$('nextDay').addEventListener('click',()=>step(1));
+function step(dir){ const k=addDays(currentDayKey,dir); if(k>=START_DATE && k<=todayKey()) loadDay(k); }
+
+function checkDateChange(){
+  if(!uid || !lastToday) return;
+  const t=todayKey();
+  if(t===lastToday) return;
+  const wasToday = currentDayKey===lastToday;
+  lastToday = t;
+  if(wasToday){ loadDay(t); toast('Nouvelle journée : '+fmtDayFr(t)); }
+  else { updateTitle(currentDayKey); updateArrows(); }
+}
+setInterval(checkDateChange, 60000);
+
+$('openCal').addEventListener('click',()=>{
+  const d=parseKey(currentDayKey);
+  $('calMonth').innerHTML=MOIS.map((m,i)=>'<option value="'+i+'"'+(i===d.getMonth()?' selected':'')+'>'+m.charAt(0).toUpperCase()+m.slice(1)+'</option>').join('');
+  const y0=parseKey(START_DATE).getFullYear(), y1=now().getFullYear();   // années générées automatiquement
+  let ys=''; for(let y=y0;y<=y1;y++) ys+='<option value="'+y+'"'+(y===d.getFullYear()?' selected':'')+'>'+y+'</option>';
+  $('calYear').innerHTML=ys;
+  $('calStartNote').textContent='Dates antérieures au '+fmtDayFr(START_DATE)+' '+parseKey(START_DATE).getFullYear()+' indisponibles.';
+  renderCal(); $('calModal').classList.add('on');
+});
+$('calModal').addEventListener('click',e=>{ if(e.target===$('calModal')) $('calModal').classList.remove('on'); });
+$('calPrev').addEventListener('click',()=>calShift(-1));
+$('calNext').addEventListener('click',()=>calShift(1));
+$('calMonth').addEventListener('change',renderCal);
+$('calYear').addEventListener('change',renderCal);
+function calShift(dir){
+  let m=+$('calMonth').value, y=+$('calYear').value;
+  m+=dir; if(m<0){m=11;y--;} if(m>11){m=0;y++;}
+  if(!$('calYear').querySelector('option[value="'+y+'"]')) return;
+  $('calMonth').value=m; $('calYear').value=y; renderCal();
+}
+function renderCal(){
+  const m=+$('calMonth').value, y=+$('calYear').value, grid=$('calGrid'); grid.innerHTML='';
+  const startCol=(new Date(y,m,1).getDay()+6)%7, nb=new Date(y,m+1,0).getDate(), today=todayKey();
+  for(let i=0;i<startCol;i++){ const b=document.createElement('button'); b.className='off'; b.disabled=true; grid.appendChild(b); }
+  for(let d=1;d<=nb;d++){
+    const k=isoKey(new Date(y,m,d)), b=document.createElement('button'); b.textContent=d;
+    if(k<START_DATE||k>today){ b.className='off'; b.disabled=true; }
+    else { if(k===currentDayKey) b.classList.add('today'); b.addEventListener('click',()=>{ loadDay(k); $('calModal').classList.remove('on'); }); }
+    grid.appendChild(b);
+  }
+}
+let toastTimer=null;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('on'),3500); }
+
+/* =========================================================
+   TENDANCES — OUTILS COMMUNS
+   ========================================================= */
+let daysPromise=null;
+function fetchAllDays(){
+  if(!daysPromise){
+    daysPromise = Data.getAllDays().then(map=>{
+      const out={}; Object.keys(map).forEach(k=>{ if(/^\d{4}-\d{2}-\d{2}$/.test(k)) out[k]=map[k]; }); return out;
+    }).catch(e=>{ daysPromise=null; console.error(e); alert('Erreur de lecture des données.'); return {}; });
+  }
+  return daysPromise;
+}
+function eachDay(from,to,fn){ for(let k=from;k<=to;k=addDays(k,1)) fn(k); }
+// Fenêtre de dates d'une carte (période prédéfinie ou plage personnalisée)
+function windowFor(st){
+  const today=todayKey();
+  if(st.period==='custom'){
+    if(!st.from || !st.to || st.from>st.to) return null;
+    const to = st.to>today ? today : st.to;
+    if(st.from>to) return null;
+    return { from:st.from, to, span:daysBetween(st.from,to)+1 };
+  }
+  const n=PERIOD_DAYS[st.period];
+  return { from:addDays(today,-(n-1)), to:today, span:n };
+}
+const minNeeded = span => Math.ceil(span*MIN_RATIO);
+function showInsuff(p, n, span){
+  $(p+'Insuff').classList.remove('hidden'); $(p+'Body').classList.add('hidden');
+  $(p+'InsuffDetail').textContent = plural(n,'jour')+' renseigné'+(n>1?'s':'')+' sur '+span+' (minimum : '+minNeeded(span)+').';
+}
+function hideInsuff(p){ $(p+'Insuff').classList.add('hidden'); $(p+'Body').classList.remove('hidden'); }
+function joinTxt(...parts){ return parts.filter(Boolean).join(' '); }
+function avg(arr){ return arr.length ? arr.reduce((s,x)=>s+x,0)/arr.length : null; }
+
+// Points du graphique : 1 point/jour jusqu'à 31 jours, puis moyennes par semaine, puis par mois (30 j).
+// Les groupes sont alignés sur la date de fin : le plus récent est complet.
+function buildPoints(from,to,getRow,fields){
+  const keys=[]; eachDay(from,to,k=>keys.push(k));
+  const span=keys.length, group = span<=31 ? 'day' : (span<=186 ? 'week' : 'month');
+  let pts=[];
+  if(group==='day'){
+    pts = keys.map((k,i)=>{ const r=getRow(k)||{}; const p={lab:'J'+(i+1)}; fields.forEach(f=>p[f]=isNum(r[f])?r[f]:null); return p; });
+  } else {
+    const size = group==='week' ? 7 : 30, n=Math.ceil(span/size);
+    for(let g=0; g<n; g++){
+      const end=span-1-(n-1-g)*size, start=Math.max(0,end-size+1);
+      const rows=keys.slice(start,end+1).map(k=>getRow(k)||{});
+      const p={lab:(group==='week'?'S':'M')+(g+1)};
+      fields.forEach(f=>{ p[f]=avg(rows.map(r=>r[f]).filter(isNum)); });
+      pts.push(p);
+    }
+  }
+  const every = Math.max(1, Math.ceil(pts.length/8));
+  const xLabels = pts.map((p,i)=>({i,txt:p.lab})).filter(o=>(pts.length-1-o.i)%every===0);   // espacées depuis la plus récente
+  const modeTxt = group==='day' ? ''
+    : (group==='week' ? 'S1 à S'+pts.length+', chaque point = moyenne de la semaine.'
+    : 'M1 à M'+pts.length+', chaque point = moyenne de 30 jours.');
+  return { pts, xLabels, modeTxt };
+}
+function niceAxis(maxV){
+  if(!(maxV>0)) return {max:1, step:0.25};
+  const raw=maxV/4, mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=raw);
+  return { max:Math.ceil(maxV/step)*step, step };
+}
+// cfg = { L:{max,step,fmt}, R:{max,step,fmt,col}|null, series:[{f,col,axis,dash}] }
+function drawChart(svg,W,H,pts,xLabels,cfg,big){
+  const mL=big?84:36, mR=cfg.R?(big?84:40):(big?30:14), mT=big?26:16, mB=big?58:30;
+  const iw=W-mL-mR, ih=H-mT-mB;
+  const fsX=big?24:11, fsY=big?22:11, axis=big?'#444':'#777', fw=big?' font-weight="600"':'';
+  const lw=big?5:3, pr=big?6:3.5, dotF=big?2.5:1.5;
+  let h='';
+  for(let v=0; v<=cfg.L.max+1e-9; v+=cfg.L.step){
+    const y=mT+ih-(v/cfg.L.max)*ih;
+    h+='<line x1="'+mL+'" y1="'+y+'" x2="'+(W-mR)+'" y2="'+y+'" stroke="#eee" stroke-width="'+(big?2:1)+'"/>';
+    h+='<text x="'+(mL-(big?14:7))+'" y="'+(y+(big?8:4))+'" font-size="'+fsY+'" fill="'+axis+'" text-anchor="end"'+fw+'>'+cfg.L.fmt(v)+'</text>';
+  }
+  if(cfg.R){
+    const nT=Math.round(cfg.R.max/cfg.R.step);
+    for(let i=0;i<=nT;i++){
+      const v=i*cfg.R.step, y=mT+ih-(v/cfg.R.max)*ih;
+      h+='<text x="'+(W-mR+(big?14:7))+'" y="'+(y+(big?8:4))+'" font-size="'+fsY+'" fill="'+cfg.R.col+'" text-anchor="start"'+fw+'>'+cfg.R.fmt(v)+'</text>';
+    }
+  }
+  const n=pts.length;
+  const x=i=> n===1 ? mL+iw/2 : mL+(iw*i)/(n-1);
+  xLabels.forEach(t=>{ h+='<text x="'+x(t.i)+'" y="'+(H-mB+(big?40:16))+'" font-size="'+fsX+'" fill="'+axis+'" text-anchor="middle"'+fw+'>'+t.txt+'</text>'; });
+  cfg.series.forEach(s=>{
+    const ax = s.axis==='R' ? cfg.R : cfg.L;
+    const y=v=> mT+ih-(Math.min(v,ax.max)/ax.max)*ih;
+    const dash = s.dash ? ' stroke-dasharray="'+(big?'14 9':'6 4')+'"' : '';
+    const line = seg => '<polyline points="'+seg+'" fill="none" stroke="'+s.col+'" stroke-width="'+lw+'" stroke-linecap="round" stroke-linejoin="round"'+dash+'/>';
+    let seg='';
+    pts.forEach((p,i)=>{
+      const v=p[s.f];
+      if(v===null||v===undefined){ if(seg) h+=line(seg); seg=''; }
+      else { seg+=(seg?' ':'')+x(i)+','+y(v); }
+    });
+    if(seg) h+=line(seg);
+    pts.forEach((p,i)=>{ const v=p[s.f]; if(v!==null&&v!==undefined) h+='<circle cx="'+x(i)+'" cy="'+y(v)+'" r="'+pr+'" fill="'+s.col+'" stroke="#fff" stroke-width="'+dotF+'"/>'; });
+  });
+  svg.innerHTML=h;
+}
+const charts={};   // pour l'agrandissement
+function renderChart(id, pts, xLabels, cfg, title, legendHTML, note){
+  drawChart($(id+'Svg'),560,260,pts,xLabels,cfg,false);
+  $(id+'Legend').innerHTML=legendHTML;
+  charts[id]={pts,xLabels,cfg,title,legendHTML,note};
+}
+['cw','lo','tz','ct'].forEach(id=>$(id+'ChartBox').addEventListener('click',()=>{
+  const c=charts[id]; if(!c) return;
+  drawChart($('bigSvg'),720,600,c.pts,c.xLabels,c.cfg,true);
+  $('bigTitle').textContent=c.title; $('bigLegend').innerHTML=c.legendHTML; $('bigNote').textContent=c.note;
+  $('bigModal').classList.add('on');
+}));
+$('bigClose').addEventListener('click',()=>$('bigModal').classList.remove('on'));
+$('bigModal').addEventListener('click',e=>{ if(e.target===$('bigModal')) $('bigModal').classList.remove('on'); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('bigModal').classList.remove('on'); });
+const sw = (col,label,dash) => '<span>'+(dash?'<span class="dash-sw" style="border-color:'+col+'"></span>':'<span class="sw" style="background:'+col+'"></span>')+label+'</span>';
+const fmtInt = v => String(Math.round(v*100)/100).replace('.',',');
+function cmpTable(head, rows){
+  return '<table class="comp-table"><thead><tr>'+head.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+
+    rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+}
+const fewTag = n => n<3 ? ' <span class="few">(peu de données)</span>' : '';
+
+// Gestion des boutons de période
+function wireRng(p, st, render, hasCustom){
+  $(p+'Rng').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    $(p+'Rng').querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); st.period=b.dataset.k;
+    if(hasCustom){
+      $(p+'Custom').classList.toggle('hidden', st.period!=='custom');
+      if(st.period==='custom'){ const t=todayKey(); st.from=addDays(t,-29); st.to=t; $(p+'From').value=st.from; $(p+'To').value=st.to; }
+    }
+    render();
+  }));
+  if(hasCustom){
+    $(p+'From').addEventListener('change',()=>{ st.from=$(p+'From').value||null; render(); });
+    $(p+'To').addEventListener('change',()=>{ st.to=$(p+'To').value||null; render(); });
+  }
+}
+
+/* =========================================================
+   1. Catatonie & bien-être
+   ========================================================= */
+const cw={period:'1sem'};
+async function renderCW(){
+  const all=await fetchAllDays(), w=windowFor(cw);
+  if(!w){ $('cwInsuff').classList.add('hidden'); $('cwBody').classList.remove('hidden'); $('cwSvg').innerHTML=''; $('cwNote').textContent='Sélectionnez deux dates valides.'; charts.cw=null; return; }
+  let n=0; eachDay(w.from,w.to,k=>{ const d=all[k]; if(d && (isNum(d.cat)||isNum(d.well))) n++; });
+  if(n<minNeeded(w.span)){ showInsuff('cw',n,w.span); charts.cw=null; return; }
+  hideInsuff('cw');
+  const b=buildPoints(w.from,w.to,k=>all[k],['cat','well']);
+  const note=joinTxt(b.modeTxt, 'Calculé sur '+plural(n,'jour')+' renseigné'+(n>1?'s':'')+' sur '+w.span+'.');
+  renderChart('cw',b.pts,b.xLabels,
+    {L:{max:5,step:1,fmt:v=>v}, R:null, series:[{f:'cat',col:COL.cat},{f:'well',col:COL.well}]},
+    'Catatonie & bien-être', sw(COL.cat,'Catatonie')+sw(COL.well,'Bien-être'), note);
+  $('cwNote').textContent=note;
+}
+wireRng('cw',cw,renderCW,true);
+
+/* =========================================================
+   2. Catatonie et Lorazépam (même journée)
+   ========================================================= */
+const lo={period:'1sem'};
+const loTotal = d => (d && isNum(d.lorAM) && isNum(d.lorMidi) && isNum(d.lorSoir)) ? Math.round((d.lorAM+d.lorMidi+d.lorSoir)*100)/100 : null;
+async function renderLO(){
+  const all=await fetchAllDays(), w=windowFor(lo);
+  if(!w){ $('loInsuff').classList.add('hidden'); $('loBody').classList.add('hidden'); return; }
+  const doses=[], cats=[], groups={};
+  eachDay(w.from,w.to,k=>{
+    const d=all[k]; if(!d) return;
+    const t=loTotal(d);
+    if(t!==null) doses.push(t);
+    if(isNum(d.cat)) cats.push(d.cat);
+    if(t!==null && isNum(d.cat)){ (groups[t]=groups[t]||[]).push(d.cat); }
+  });
+  if(cats.length<minNeeded(w.span)){ showInsuff('lo',cats.length,w.span); charts.lo=null; return; }
+  hideInsuff('lo');
+  $('loDose').textContent = doses.length ? fmtFr(avg(doses)) : '—';
+  $('loCat').textContent = fmtFr(avg(cats));
+  const b=buildPoints(w.from,w.to,k=>({cat:all[k]&&all[k].cat, dose:loTotal(all[k])}),['cat','dose']);
+  const ax=niceAxis(Math.max(0,...b.pts.map(p=>p.dose||0)));
+  const note=joinTxt(b.modeTxt, 'Score : '+plural(cats.length,'jour')+' évalué'+(cats.length>1?'s':'')+' sur '+w.span+'.');
+  renderChart('lo',b.pts,b.xLabels,
+    {L:{max:5,step:1,fmt:v=>v}, R:{max:ax.max,step:ax.step,fmt:fmtInt,col:COL.dose},
+     series:[{f:'cat',col:COL.cat},{f:'dose',col:COL.dose,axis:'R',dash:true}]},
+    'Catatonie et Lorazépam', sw(COL.cat,'Catatonie (échelle de gauche, 0 à 5)')+sw(COL.dose,'Lorazépam, dose totale (mg, échelle de droite)',true), note);
+  const keys=Object.keys(groups).map(Number).sort((a,b)=>a-b);
+  $('loCmp').innerHTML = keys.length<2
+    ? '<div class="cmp-msg">La dose totale n\'a pas varié sur cette période : aucune comparaison possible.</div>'
+    : cmpTable(['Dose totale','Jours','Catatonie moy.'], keys.map(k=>[fmtFr(k)+' mg', groups[k].length+fewTag(groups[k].length), '<span class="comp-pct">'+fmtFr(avg(groups[k]))+'</span>']));
+  $('loNote').textContent = note+' Dose : '+plural(doses.length,'journée')+' où les trois doses sont renseignées.';
+}
+wireRng('lo',lo,renderLO,true);
+
+/* =========================================================
+   3. Sommeil et Trazodone (dose de la veille au soir)
+   ========================================================= */
+const tz={period:'1sem'};
+async function renderTZ(){
+  const all=await fetchAllDays(), w=windowFor(tz);
+  if(!w){ $('tzInsuff').classList.add('hidden'); $('tzBody').classList.add('hidden'); return; }
+  const sleeps=[], doses=[], groups={};
+  const rowOf = k => {
+    const m=sleepMinutesFromData(all[k]), prev=all[addDays(k,-1)];
+    return { sleep: m===null?null:m/60, traz: prev&&isNum(prev.traz)?prev.traz:null };
+  };
+  eachDay(w.from,w.to,k=>{
+    const r=rowOf(k);
+    if(r.sleep!==null) sleeps.push(r.sleep);
+    if(r.traz!==null) doses.push(r.traz);
+    if(r.sleep!==null && r.traz!==null) (groups[r.traz]=groups[r.traz]||[]).push(r.sleep);
+  });
+  if(sleeps.length<minNeeded(w.span)){ showInsuff('tz',sleeps.length,w.span); charts.tz=null; return; }
+  hideInsuff('tz');
+  $('tzDose').textContent = doses.length ? fmtFr(avg(doses)) : '—';
+  $('tzSleep').textContent = fmtH1(avg(sleeps));
+  const b=buildPoints(w.from,w.to,rowOf,['sleep','traz']);
+  const maxS=Math.max(12,...b.pts.map(p=>p.sleep||0));
+  const ax=niceAxis(Math.max(0,...b.pts.map(p=>p.traz||0)));
+  const note=joinTxt(b.modeTxt, 'Sommeil : '+plural(sleeps.length,'nuit')+' renseignée'+(sleeps.length>1?'s':'')+' sur '+w.span+'.');
+  renderChart('tz',b.pts,b.xLabels,
+    {L:{max:Math.ceil(maxS/2)*2,step:2,fmt:v=>v+' h'}, R:{max:ax.max,step:ax.step,fmt:fmtInt,col:COL.dose},
+     series:[{f:'sleep',col:COL.sleep},{f:'traz',col:COL.dose,axis:'R',dash:true}]},
+    'Sommeil et Trazodone', sw(COL.sleep,'Sommeil (heures, échelle de gauche)')+sw(COL.dose,'Trazodone la veille (mg, échelle de droite)',true), note);
+  const keys=Object.keys(groups).map(Number).sort((a,b)=>a-b);
+  $('tzCmp').innerHTML = keys.length<2
+    ? '<div class="cmp-msg">La dose de Trazodone n\'a pas varié sur cette période : aucune comparaison possible.</div>'
+    : cmpTable(['Dose la veille','Nuits','Sommeil moy.'], keys.map(k=>[fmtFr(k)+' mg', groups[k].length+fewTag(groups[k].length), '<span class="comp-pct">'+fmtH1(avg(groups[k]))+'</span>']));
+  $('tzNote').textContent = note;
+}
+wireRng('tz',tz,renderTZ,true);
+
+/* =========================================================
+   3b. Catatonie et Trazodone (dose de la veille au soir)
+   ========================================================= */
+const ct={period:'1sem'};
+async function renderCT(){
+  const all=await fetchAllDays(), w=windowFor(ct);
+  if(!w){ $('ctInsuff').classList.add('hidden'); $('ctBody').classList.add('hidden'); return; }
+  const cats=[], doses=[], groups={};
+  const rowOf = k => {
+    const d=all[k], prev=all[addDays(k,-1)];
+    return { cat: d&&isNum(d.cat)?d.cat:null, traz: prev&&isNum(prev.traz)?prev.traz:null };
+  };
+  eachDay(w.from,w.to,k=>{
+    const r=rowOf(k);
+    if(r.cat!==null) cats.push(r.cat);
+    if(r.traz!==null) doses.push(r.traz);
+    if(r.cat!==null && r.traz!==null) (groups[r.traz]=groups[r.traz]||[]).push(r.cat);
+  });
+  if(cats.length<minNeeded(w.span)){ showInsuff('ct',cats.length,w.span); charts.ct=null; return; }
+  hideInsuff('ct');
+  $('ctDose').textContent = doses.length ? fmtFr(avg(doses)) : '—';
+  $('ctCat').textContent = fmtFr(avg(cats));
+  const b=buildPoints(w.from,w.to,rowOf,['cat','traz']);
+  const ax=niceAxis(Math.max(0,...b.pts.map(p=>p.traz||0)));
+  const note=joinTxt(b.modeTxt, 'Score : '+plural(cats.length,'jour')+' évalué'+(cats.length>1?'s':'')+' sur '+w.span+'.');
+  renderChart('ct',b.pts,b.xLabels,
+    {L:{max:5,step:1,fmt:v=>v}, R:{max:ax.max,step:ax.step,fmt:fmtInt,col:COL.dose},
+     series:[{f:'cat',col:COL.cat},{f:'traz',col:COL.dose,axis:'R',dash:true}]},
+    'Catatonie et Trazodone', sw(COL.cat,'Catatonie (échelle de gauche, 0 à 5)')+sw(COL.dose,'Trazodone la veille (mg, échelle de droite)',true), note);
+  const keys=Object.keys(groups).map(Number).sort((a,b)=>a-b);
+  $('ctCmp').innerHTML = keys.length<2
+    ? '<div class="cmp-msg">La dose de Trazodone n\'a pas varié sur cette période : aucune comparaison possible.</div>'
+    : cmpTable(['Dose la veille','Jours','Catatonie moy.'], keys.map(k=>[fmtFr(k)+' mg', groups[k].length+fewTag(groups[k].length), '<span class="comp-pct">'+fmtFr(avg(groups[k]))+'</span>']));
+  $('ctNote').textContent = note;
+}
+wireRng('ct',ct,renderCT,true);
+
+/* =========================================================
+   4. Mélatonine supplémentaire
+   ========================================================= */
+const emc={period:'3mois'};
+async function renderEM(){
+  const all=await fetchAllDays(), today=todayKey();
+  [30,90,180,365].forEach(p=>{
+    let nAns=0, nEm=0;
+    eachDay(addDays(today,-(p-1)),today,k=>{ const d=all[k]; if(d && typeof d.emOn==='boolean'){ nAns++; if(d.emOn) nEm++; } });
+    if(nAns<minNeeded(p)){
+      $('emP'+p).textContent='—';
+      $('emSub'+p).textContent='données insuffisantes : '+nAns+' jour'+(nAns>1?'s':'')+' renseigné'+(nAns>1?'s':'')+' sur '+p+' (minimum '+minNeeded(p)+')';
+    } else {
+      $('emP'+p).textContent=Math.round(nEm/nAns*100)+'\u00a0%';
+      $('emSub'+p).textContent='donnée '+nEm+' jour'+(nEm>1?'s':'')+' sur '+nAns+' renseigné'+(nAns>1?'s':'');
+    }
+  });
+  const w=windowFor(emc), yes=[], no=[];
+  eachDay(w.from,w.to,k=>{
+    const m=sleepMinutesFromData(all[k]), prev=all[addDays(k,-1)];
+    if(m===null || !prev || typeof prev.emOn!=='boolean') return;
+    (prev.emOn?yes:no).push(m/60);
+  });
+  const nP=yes.length+no.length;
+  if(nP<minNeeded(w.span)){
+    $('emCmp').innerHTML='<div class="cmp-msg">Données insuffisantes : '+nP+' nuit'+(nP>1?'s':'')+' utilisable'+(nP>1?'s':'')+' sur '+w.span+' (minimum '+minNeeded(w.span)+').</div>';
+    $('emNote').textContent='';
+    return;
+  }
+  const cell = a => a.length ? '<span class="comp-pct">'+fmtH1(avg(a))+'</span>' : '<span class="comp-pct off">—</span>';
+  $('emCmp').innerHTML = cmpTable(['','Nuits','Sommeil moy.'], [
+    ['Avec mélatonine', yes.length+fewTag(yes.length), cell(yes)],
+    ['Sans mélatonine', no.length+fewTag(no.length), cell(no)]
+  ]);
+  $('emNote').textContent='Calculé sur '+plural(nP,'nuit')+' sur '+w.span+' : nuits dont le sommeil est renseigné.';
+}
+wireRng('emc',emc,renderEM,false);
+
+/* =========================================================
+   5. Transit intestinal
+   ========================================================= */
+const tx={period:'1sem'};
+async function renderTX(){
+  const all=await fetchAllDays(), w=windowFor(tx);
+  let nDays=0, nSelle=0, cSum=0, cN=0, laxSum=0, nLax=0;
+  eachDay(w.from,w.to,k=>{
+    const d=all[k]; if(!d) return;
+    if(typeof d.laxOn==='boolean'){ nLax++; if(d.laxOn && isNum(d.laxDose)) laxSum+=d.laxDose; }
+    if(typeof d.selleOn==='boolean'){
+      nDays++;
+      if(d.selleOn){ nSelle++; (d.selles||[]).forEach(s=>{ if(s && CONSIST_SCALE[s.c]){ cSum+=CONSIST_SCALE[s.c]; cN++; } }); }
+    }
+  });
+  if(nDays<minNeeded(w.span)){ showInsuff('tx',nDays,w.span); return; }
+  hideInsuff('tx');
+  $('txDays').textContent=nSelle;
+  $('txDaysSub').textContent='sur '+nDays+' renseigné'+(nDays>1?'s':'');
+  $('txLax').textContent = nLax ? fmtFr(laxSum/nLax) : '—';
+  if(cN){
+    const a=cSum/cN;
+    $('txConsist').textContent=fmtFr(a);
+  } else { $('txConsist').textContent='—'; }
+  $('txNote').textContent='Dose Lax-A-Day : '+plural(nLax,'jour')+' renseigné'+(nLax>1?'s':'')+'.';
+}
+wireRng('tx',tx,renderTX,false);
+
+/* =========================================================
+   6. Compliance aux suppléments
+   ========================================================= */
+const CP_SUPPS=[
+  {field:'fer',dose:'ferDose',label:'Glycinate ferreux'},
+  {field:'vitD',dose:'vitDDose',label:'Vitamine D'},
+  {field:'multi',label:'Multi\u00advitamines'},
+  {field:'omega',label:'Oméga-3'}
+];
+async function renderCP(){
+  const all=await fetchAllDays(), today=todayKey();
+  $('cpRows').innerHTML = CP_SUPPS.map(s=>{
+    const cells=[30,90,180,365].map(p=>{
+      let n=0, taken=0;
+      eachDay(addDays(today,-(p-1)),today,k=>{
+        const d=all[k]; if(!d || typeof d[s.field]!=='boolean') return;
+        n++;
+        if(d[s.field] && (!s.dose || (isNum(d[s.dose]) && d[s.dose]>0))) taken++;
+      });
+      return n<minNeeded(p) ? '<span class="comp-pct off">—</span>' : '<span class="comp-pct">'+Math.round(taken/n*100)+'\u00a0%</span>';
+    });
+    return '<tr><td>'+s.label+'</td>'+cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>';
+  }).join('');
+}
+
+function renderAllTrends(){ renderCW(); renderLO(); renderTZ(); renderCT(); renderEM(); renderTX(); renderCP(); }
+
+/* =========================================================
+   ONGLETS
+   ========================================================= */
+document.querySelectorAll('.bnav a').forEach(a=>a.addEventListener('click',e=>{
+  e.preventDefault();
+  flushSave();
+  document.querySelectorAll('.bnav a').forEach(x=>x.classList.remove('on'));
+  a.classList.add('on');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  $('p-'+a.dataset.p).classList.add('on');
+  window.scrollTo(0,0);
+  if(a.dataset.p==='trend'){ daysPromise=null; renderAllTrends(); }
+}));
+
+/* =========================================================
+   DÉMARRAGE
+   ========================================================= */
+buildScales();
+makeSlider('cat',CAT_LEVELS);
+makeSlider('well',WELL_LEVELS);
+
+/* =========================================================
+   CONNEXION DES PARENTS
+   ========================================================= */
+function showErr(m){ $('errorMsg').textContent=m; $('errorMsg').style.display='block'; }
+function hideErr(){ $('errorMsg').style.display='none'; }
+$('loginBtn').addEventListener('click', async ()=>{
+  const email=$('email').value.trim(), pass=$('password').value;
+  if(!email||!pass){ showErr('Courriel et mot de passe requis.'); return; }
+  $('loginBtn').disabled=true; $('loginBtn').textContent='Connexion…'; hideErr();
+  try{ await signInWithEmailAndPassword(auth,email,pass); }
+  catch(e){
+    showErr(e.code==='auth/invalid-credential' ? 'Identifiants incorrects.' : 'Erreur de connexion ('+(e.code||'inconnue')+').');
+  }
+  finally{ $('loginBtn').disabled=false; $('loginBtn').textContent='Se connecter'; }
+});
+$('password').addEventListener('keydown',e=>{ if(e.key==='Enter') $('loginBtn').click(); });
+$('logoutBtn').addEventListener('click', async ()=>{
+  if(!confirm('Déconnexion ?')) return;
+  await Promise.race([flushSave(), new Promise(r=>setTimeout(r,3000))]);   // termine l'enregistrement en attente
+  signOut(auth);
+});
+onAuthStateChanged(auth, user=>{
+  if(user){
+    uid=user.uid;
+    $('login-screen').style.display='none';
+    $('app-container').style.display='block';
+    lastToday=todayKey();
+    loadDay(lastToday);
+  } else {
+    uid=null;
+    if(unsubscribe){ unsubscribe(); unsubscribe=null; }
+    dayReady=false; clearTimeout(saveTimer); saveTimer=null;
+    $('app-container').style.display='none';
+    $('login-screen').style.display='block';
+  }
+});
+
+</script>
+</body>
+</html>
